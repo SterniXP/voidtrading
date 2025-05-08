@@ -23,7 +23,6 @@ public class LogLevelSuggestionProvider implements SuggestionProvider<ServerComm
         }
 
         for (LogLevel logLevel : LogLevel.values()) {
-            System.out.println(currentArgument + " vs " + logLevel.name());
             if (logLevel.name().contains(currentArgument)) {
                 builder.suggest(logLevel.name());
             }

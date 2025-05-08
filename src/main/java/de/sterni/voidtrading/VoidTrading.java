@@ -33,29 +33,28 @@ public class VoidTrading implements ModInitializer {
 
         LOGGER.info("Look Mom! I'm void trading.");
 
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            dispatcher.register(literal("voidtrading")
-                    .then(literal(TradeResetCooldownCommand.COOLDOWN_ARG_NAME)
-                            .executes(TradeResetCooldownCommand::cooldown)
-                            .then(literal(SET_ARG_NAME)
-                                    .then(argument(TradeResetCooldownCommand.COOLDOWN_ARG_NAME, integer())
-                                            .requires(source -> source.hasPermissionLevel(PERMISSION_LEVEL))
-                                            .executes(TradeResetCooldownCommand::setCooldown)
-                                    )
-                            )
-                    )
-                    //loglevel commands
-                    .then(literal(TradeLogLevelCommand.LOG_LEVEL_ARG_NAME)
-                            .requires(source -> source.hasPermissionLevel(PERMISSION_LEVEL))
-                            .executes(TradeLogLevelCommand::logLevel)
-                            .then(literal(SET_ARG_NAME)
-                                    .then(argument(TradeLogLevelCommand.LOG_LEVEL_ARG_NAME, word())
-                                            .suggests(new LogLevelSuggestionProvider())
-                                            .executes(TradeLogLevelCommand::setLogLevel)
-                                    )
-                            )
-                    )
-            );
-        });
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
+                dispatcher.register(literal("voidtrading")
+                        .then(literal(TradeResetCooldownCommand.COOLDOWN_ARG_NAME)
+                                .executes(TradeResetCooldownCommand::cooldown)
+                                .then(literal(SET_ARG_NAME)
+                                        .then(argument(TradeResetCooldownCommand.COOLDOWN_ARG_NAME, integer())
+                                                .requires(source -> source.hasPermissionLevel(PERMISSION_LEVEL))
+                                                .executes(TradeResetCooldownCommand::setCooldown)
+                                        )
+                                )
+                        )
+                        //loglevel commands
+                        .then(literal(TradeLogLevelCommand.LOG_LEVEL_ARG_NAME)
+                                .requires(source -> source.hasPermissionLevel(PERMISSION_LEVEL))
+                                .executes(TradeLogLevelCommand::logLevel)
+                                .then(literal(SET_ARG_NAME)
+                                        .then(argument(TradeLogLevelCommand.LOG_LEVEL_ARG_NAME, word())
+                                                .suggests(new LogLevelSuggestionProvider())
+                                                .executes(TradeLogLevelCommand::setLogLevel)
+                                        )
+                                )
+                        )
+                ));
     }
 }

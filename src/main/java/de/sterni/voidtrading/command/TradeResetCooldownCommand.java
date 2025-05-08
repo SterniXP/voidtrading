@@ -1,13 +1,10 @@
 package de.sterni.voidtrading.command;
 
 import com.mojang.brigadier.context.CommandContext;
-import de.sterni.voidtrading.config.VoidTradingConfigModel;
 import io.wispforest.owo.config.Option;
-import io.wispforest.owo.config.annotation.RangeConstraint;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 
-import java.lang.annotation.Annotation;
 import java.text.MessageFormat;
 
 import static com.mojang.brigadier.arguments.IntegerArgumentType.getInteger;

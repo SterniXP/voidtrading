@@ -18,16 +18,10 @@
 		"main": [
 			"de.sterni.voidtrading.VoidTrading"
 		],
-		"client": [
-			"de.sterni.voidtrading.VoidTradingClient"
-		]
+		"client": []
 	},
 	"mixins": [
-		"void-trading.mixins.json",
-		{
-			"config": "void-trading.client.mixins.json",
-			"environment": "client"
-		}
+		"void-trading.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.16.14",

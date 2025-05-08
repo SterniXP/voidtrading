@@ -55,14 +55,3 @@ public class MerchantScreenCloseMixin {
         }
     }
 }
-
-
-    // this would reinstate the endless trading glitch as normal but with the new nerf of 15s before villager is unloaded
-//    @Inject(method = "canUse", at = @At("HEAD"), cancellable = true)
-//    private void onDistanceCheck(PlayerEntity player, CallbackInfoReturnable<Boolean> cir) {
-//        if (merchant instanceof VillagerEntity villager
-//                && villager.hasCustomer()) {
-//            LOGGER.info("MerchantScreen kept open");
-//            cir.setReturnValue(true);
-//        }
-//    }
