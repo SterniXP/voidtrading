@@ -1,0 +1,41 @@
+{
+	"schemaVersion": 1,
+	"id": "void-trading",
+	"version": "${version}",
+	"name": "Void Trading",
+	"description": "Restores Void Trading (or any portal based trading for that matter).",
+	"authors": [
+		"SterniXPutzig"
+	],
+	"contact": {
+		"homepage": "go home page XD",
+		"sources": "Ask Dev"
+	},
+	"license": "MIT",
+	"icon": "assets/void-trading/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"de.sterni.voidtrading.VoidTrading"
+		],
+		"client": [
+			"de.sterni.voidtrading.VoidTradingClient"
+		]
+	},
+	"mixins": [
+		"void-trading.mixins.json",
+		{
+			"config": "void-trading.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.14",
+		"minecraft": "~1.21.4",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
