@@ -5,6 +5,7 @@ import io.wispforest.owo.config.annotation.RangeConstraint;
 import lombok.Getter;
 import org.slf4j.event.Level;
 
+@SuppressWarnings("unused")
 @Config(name = "void-trading-config", wrapperName = "VoidTradingConfig")
 public class VoidTradingConfigModel {
 
