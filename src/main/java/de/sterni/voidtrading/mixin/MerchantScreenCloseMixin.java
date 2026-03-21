@@ -1,5 +1,6 @@
 package de.sterni.voidtrading.mixin;
 
+import de.sterni.voidtrading.logging.VoidTradingLogger;
 import net.minecraft.entity.passive.MerchantEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.screen.MerchantScreenHandler;
@@ -17,7 +18,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static de.sterni.voidtrading.VoidTrading.CONFIG;
-import static de.sterni.voidtrading.VoidTrading.LOGGER;
 
 @Mixin(MerchantScreenHandler.class)
 public class MerchantScreenCloseMixin {
@@ -31,27 +31,18 @@ public class MerchantScreenCloseMixin {
     private void onTradingScreenClosed(PlayerEntity player, CallbackInfo ci) {
         if (merchant instanceof MerchantEntity merchantEntity
                 && !this.merchant.canInteract(player)
-                && Math.abs(player.getWorld().getTime() - playerCooldownMap.getOrDefault(player.getUuidAsString(), 0L)) >= CONFIG.cooldown()) {
+                && Math.abs(player.getWorld().getTime()
+                - playerCooldownMap.getOrDefault(player.getUuidAsString(), 0L)) >= CONFIG.cooldown()) {
 
-            tryLog(merchantEntity.getId(), merchantEntity.getEntityWorld().getRegistryKey().getValue(), merchantEntity.getBlockPos());
+            VoidTradingLogger.logEvent("Trade of Villager (id: {}) at {}:{} reset.",
+                    merchantEntity.getId(),
+                    merchantEntity.getEntityWorld().getRegistryKey().getValue(),
+                    merchantEntity.getBlockPos());
 
             for (TradeOffer offer : merchantEntity.getOffers()) {
                 offer.resetUses();
             }
             playerCooldownMap.put(player.getUuidAsString(), player.getWorld().getTime());
-        }
-    }
-
-    @Unique
-    private void tryLog(Object... args) {
-        final String format = "Trade of Villager (id: {}) at {}:{} reset.";
-        switch (CONFIG.logLevel()) {
-            case NONE -> {/*do nothing, here to immediately return*/}
-            case DEBUG -> LOGGER.debug(format, args);
-            case INFO -> LOGGER.info(format, args);
-            case WARN -> LOGGER.warn(format, args);
-            case ERROR -> LOGGER.error(format, args);
-            default -> {/*do nothing*/}
         }
     }
 }
