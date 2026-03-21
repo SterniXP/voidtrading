@@ -23,7 +23,7 @@ public class TradeResetCooldownCommand {
     public static int setCooldown(CommandContext<ServerCommandSource> context) {
         int resetCooldown = getInteger(context, COOLDOWN_ARG_NAME);
         Option<Object> option = CONFIG.optionForKey(CONFIG.keys.cooldown);
-        if (option == null) {
+        if (option == null || option.constraint() == null) {
             context.getSource().sendFeedback(() -> Text.literal("Failed to set cooldown because the config is broken."), true);
         }
         else if (option.verifyConstraint(resetCooldown)) {
