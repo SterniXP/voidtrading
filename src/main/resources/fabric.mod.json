@@ -9,10 +9,11 @@
 	],
 	"contact": {
 		"homepage": "go home page XD",
-		"sources": "Ask Dev"
+		"sources": "https://github.com/SterniXP/voidtrading",
+		"issues": "https://github.com/SterniXP/voidtrading/issues"
 	},
 	"license": "MIT",
-	"icon": "assets/void-trading/icon.png",
+	"icon": "assets/voidtrading/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
