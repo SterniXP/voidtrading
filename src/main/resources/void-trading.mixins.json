@@ -3,7 +3,8 @@
   "package": "de.sterni.voidtrading.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "MerchantScreenCloseMixin"
+    "MerchantScreenCloseMixin",
+    "VillagerInteractMixin"
   ],
   "injectors": {
     "defaultRequire": 1
