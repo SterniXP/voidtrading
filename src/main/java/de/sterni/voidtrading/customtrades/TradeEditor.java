@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static de.sterni.voidtrading.VoidTrading.CONFIG;
+
 public class TradeEditor {
 
     private final TradeBlackListEditor blackListEditor = TradeBlackListEditor.getInstance();
@@ -22,7 +24,11 @@ public class TradeEditor {
      */
     public boolean tryEditTrades(VillagerEntity villager, Item handItem) {
         removeBannedTrades(villager);
-        return cycleTradeFor(villager, handItem);
+        if (CONFIG.enableCustomTradeCycling()) {
+            return cycleTradeFor(villager, handItem);
+        } else {
+            return addAllTradesFor(villager, handItem);
+        }
     }
 
     private void removeBannedTrades(VillagerEntity villager) {
@@ -34,13 +40,15 @@ public class TradeEditor {
         if (newTrades.isEmpty()) {
             return false;
         }
-        List<TradeOffer> currentTrades = materialsEditor.getCurrentCustomTrades(villager);
+        List<TradeOffer> currentCustomTrades = materialsEditor.getCurrentCustomTrades(villager);
         int index = -1;
-        for (TradeOffer trade : currentTrades) {
+        for (TradeOffer trade : currentCustomTrades) {
             villager.getOffers().remove(trade);
-            int candidate = materialsEditor.containsTrade(trade);
-            if (candidate > index) {
-                index = candidate;
+            if (trade.getSellItem().getItem().equals(handItem)) {
+                int candidate = materialsEditor.containsTrade(trade);
+                if (candidate > index) {
+                    index = candidate;
+                }
             }
         }
         if (index + 1 >= newTrades.size()) index = 0;
@@ -50,5 +58,16 @@ public class TradeEditor {
             return true;
         }
         return false;
+    }
+
+    private boolean addAllTradesFor(VillagerEntity villager, Item handItem) {
+        Set<TradeOffer> newTrades = materialsEditor.getTradesWithResult(handItem);
+        if (newTrades.isEmpty()) {
+            return false;
+        }
+        List<TradeOffer> currentTrades = materialsEditor.getCurrentCustomTrades(villager);
+        villager.getOffers().removeAll(currentTrades);
+        villager.getOffers().addAll(newTrades);
+        return true;
     }
 }

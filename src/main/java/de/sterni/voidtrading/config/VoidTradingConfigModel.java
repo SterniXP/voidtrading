@@ -38,4 +38,11 @@ public class VoidTradingConfigModel {
             this.slf4jLevelInt = slf4jLevelInt;
         }
     }
+
+    /**
+     * Whether to enable custom trade cycling. If enabled, the custom trades of the same result item
+     * will be cycled through each time the player attempts to add a trade.
+     * if disabled, all custom trades with the same result item will be added at once.
+     */
+    public boolean enableCustomTradeCycling = false;
 }
