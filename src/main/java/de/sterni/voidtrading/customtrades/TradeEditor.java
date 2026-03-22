@@ -1,7 +1,9 @@
 package de.sterni.voidtrading.customtrades;
 
+import lombok.NonNull;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.Item;
+import net.minecraft.item.Items;
 import net.minecraft.village.TradeOffer;
 
 import java.util.List;
@@ -24,6 +26,9 @@ public class TradeEditor {
      */
     public boolean tryEditTrades(VillagerEntity villager, Item handItem) {
         removeBannedTrades(villager);
+        if (handItem == null || Items.AIR.equals(handItem)) {
+            return false;
+        }
         if (CONFIG.enableCustomTradeCycling()) {
             return cycleTradeFor(villager, handItem);
         } else {
@@ -41,6 +46,10 @@ public class TradeEditor {
             return false;
         }
         List<TradeOffer> currentCustomTrades = materialsEditor.getCurrentCustomTrades(villager);
+        if (newTrades.size() == 1 && currentCustomTrades.stream().anyMatch(
+                trade -> materialsEditor.offersAreEqual(trade, newTrades.iterator().next()))) {
+            return false;
+        }
         int index = -1;
         for (TradeOffer trade : currentCustomTrades) {
             villager.getOffers().remove(trade);
@@ -60,14 +69,27 @@ public class TradeEditor {
         return false;
     }
 
-    private boolean addAllTradesFor(VillagerEntity villager, Item handItem) {
+    private boolean addAllTradesFor(@NonNull VillagerEntity villager, @NonNull Item handItem) {
         Set<TradeOffer> newTrades = materialsEditor.getTradesWithResult(handItem);
         if (newTrades.isEmpty()) {
             return false;
         }
-        List<TradeOffer> currentTrades = materialsEditor.getCurrentCustomTrades(villager);
-        villager.getOffers().removeAll(currentTrades);
+        List<TradeOffer> currentCustomTrades = materialsEditor.getCurrentCustomTrades(villager);
+        for (TradeOffer trade : currentCustomTrades) {
+            materialsEditor.offersAreEqual(trade, )
+        }
+        villager.getOffers().removeAll(currentCustomTrades);
         villager.getOffers().addAll(newTrades);
+        return true;
+    }
+
+    private boolean tradeOfferListsAreEqual(@NonNull List<TradeOffer> list1, @NonNull List<TradeOffer> list2) {
+        if (list1.size() != list2.size()) return false;
+        for (int i = 0; i < list1.size(); i++) {
+            if (!materialsEditor.offersAreEqual(list1.get(i), list2.get(i))) {
+                return false;
+            }
+        }
         return true;
     }
 }

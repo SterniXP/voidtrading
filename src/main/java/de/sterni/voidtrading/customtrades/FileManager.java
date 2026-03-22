@@ -24,7 +24,7 @@ public class FileManager {
         ensurePathExists(path);
         File file = new File(path);
         try (BufferedWriter writer = Files.newBufferedWriter(file.toPath())) {
-            String saveThis = new GsonBuilder().setPrettyPrinting().create().toJson(line);
+            String saveThis = new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(line);
             writer.write(saveThis);
         } catch (IOException ex) {
             LOGGER.warn("Could not save {}! Reason: {}", fileName, ex.getMessage());

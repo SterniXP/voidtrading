@@ -25,6 +25,7 @@ public class TradeResetCooldownCommand {
         Option<Object> option = CONFIG.optionForKey(CONFIG.keys.cooldown);
         if (option == null || option.constraint() == null) {
             context.getSource().sendFeedback(() -> Text.literal("Failed to set cooldown because the config is broken."), true);
+            return 0;
         }
         else if (option.verifyConstraint(resetCooldown)) {
             double resetCooldownInSeconds = resetCooldown / 20.0;

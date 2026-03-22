@@ -25,18 +25,23 @@ public abstract class ListEditor {
     private static final String RESULT_MATERIAL = "RESULT_MATERIAL";
     private static final String RESULT_AMOUNT = "RESULT_AMOUNT";
     private static final String MAX_USES = "MAX_USES";
+    /**
+     * Can be used to update trades, internally uses TradeOffer#uses to store the state (uses == 0 -> active)
+     */
+    private static final String ACTIVE = "ACTIVE";
 
     final Map<Item, LinkedHashSet<TradeOffer>> trades = new HashMap<>();
 
     public abstract void loadFromFile();
 
-    public String getTradesAsString() {
+    public String getTradesAsString(boolean onlyActive) {
         StringBuilder builder = new StringBuilder(200);
         for (Map.Entry<Item, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
-            builder.append("Handel für ").append(trade.getKey()).append(":\n");
+            builder.append(trade.getKey()).append(":\n");
             LinkedHashSet<TradeOffer> offers = trade.getValue();
             int i = 1;
             for (TradeOffer offer : offers) {
+                if (onlyActive && !isOfferActive(offer)) continue;
                 builder.append(i++).append(": [");
                 appendItemStack(builder, offer.getFirstBuyItem().itemStack());
                 if (offer.getSecondBuyItem().isPresent()) {
@@ -134,7 +139,7 @@ public abstract class ListEditor {
 
         Optional<TradedItem> secondTradedItem = Optional.empty();
         JsonElement secondBuyItemJson = tradeAsJson.get(INGREDIENT_2_MATERIAL);
-        if (secondBuyItemJson != null) {
+        if (!secondBuyItemJson.isJsonNull()) {
             Item secondBuyItem = Registries.ITEM.get(Identifier.of(secondBuyItemJson.getAsString()));
             if (!Items.AIR.equals(secondBuyItem)) {
                 int amountSecondBuyItem = tradeAsJson.get(INGREDIENT_2_AMOUNT).getAsInt();
@@ -142,10 +147,13 @@ public abstract class ListEditor {
             }
         }
 
+        // default to true if missing or read value
+        boolean active = !tradeAsJson.has(ACTIVE) || tradeAsJson.get(ACTIVE).getAsBoolean();
+
         int resultAmount = tradeAsJson.get(RESULT_AMOUNT).getAsInt();
         int maxUses = tradeAsJson.get(MAX_USES).getAsInt();
 
-        return new TradeOffer(firstTradedItem, secondTradedItem, new ItemStack(resultItem, resultAmount), maxUses, 1,0.2F);
+        return new TradeOffer(firstTradedItem, secondTradedItem, new ItemStack(resultItem, resultAmount), maxUses, active?1:0,0.2F);
     }
 
     public int containsTrade(@NonNull TradeOffer offer) {
@@ -182,6 +190,7 @@ public abstract class ListEditor {
                 jsonTrade.addProperty(RESULT_MATERIAL, Registries.ITEM.getId(offer.getSellItem().getItem()).toString());
                 jsonTrade.addProperty(RESULT_AMOUNT, offer.getSellItem().getCount());
                 jsonTrade.addProperty(MAX_USES, offer.getMaxUses());
+                jsonTrade.addProperty(ACTIVE, isOfferActive(offer));
                 jsonTrade.addProperty(INGREDIENT_1_MATERIAL, Registries.ITEM.getId(offer.getOriginalFirstBuyItem().getItem()).toString());
                 jsonTrade.addProperty(INGREDIENT_1_AMOUNT, offer.getOriginalFirstBuyItem().getCount());
                 if (offer.getSecondBuyItem().isPresent()) {
@@ -192,5 +201,9 @@ public abstract class ListEditor {
             }
         }
         FileManager.saveToFile(fileName, jsonTrades);
+    }
+
+    private boolean isOfferActive(@NonNull TradeOffer offer) {
+        return offer.getUses() == 0;
     }
 }

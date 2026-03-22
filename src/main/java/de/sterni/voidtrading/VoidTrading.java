@@ -1,5 +1,6 @@
 package de.sterni.voidtrading;
 
+import de.sterni.voidtrading.command.CustomTradesCommands;
 import de.sterni.voidtrading.command.TradeLogLevelCommand;
 import de.sterni.voidtrading.command.TradeResetCooldownCommand;
 import de.sterni.voidtrading.command.suggestions.LogLevelSuggestionProvider;
@@ -22,7 +23,7 @@ public class VoidTrading implements ModInitializer {
     // That way, it's clear which mod wrote info, warnings, and errors.
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     public static final VoidTradingConfig CONFIG = VoidTradingConfig.createAndLoad();
-    private static final int PERMISSION_LEVEL = 1;
+    public static final int PERMISSION_LEVEL = 2;
     private static final String SET_ARG_NAME = "set";
 
     @Override
@@ -56,5 +57,7 @@ public class VoidTrading implements ModInitializer {
                                 )
                         )
                 ));
+
+        CustomTradesCommands.registerCommands();
     }
 }
