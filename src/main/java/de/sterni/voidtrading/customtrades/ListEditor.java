@@ -173,4 +173,24 @@ public abstract class ListEditor {
                 && offer.getPriceMultiplier() == other.getPriceMultiplier()
                 && offer.getMerchantExperience() == other.getMerchantExperience();
     }
+
+    public void safeToFile(@NonNull String fileName) {
+        JsonArray jsonTrades = new JsonArray();
+        for (Map.Entry<Item, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
+            for (TradeOffer offer : trade.getValue()) {
+                JsonObject jsonTrade = new JsonObject();
+                jsonTrade.addProperty(RESULT_MATERIAL, Registries.ITEM.getId(offer.getSellItem().getItem()).toString());
+                jsonTrade.addProperty(RESULT_AMOUNT, offer.getSellItem().getCount());
+                jsonTrade.addProperty(MAX_USES, offer.getMaxUses());
+                jsonTrade.addProperty(INGREDIENT_1_MATERIAL, Registries.ITEM.getId(offer.getOriginalFirstBuyItem().getItem()).toString());
+                jsonTrade.addProperty(INGREDIENT_1_AMOUNT, offer.getOriginalFirstBuyItem().getCount());
+                if (offer.getSecondBuyItem().isPresent()) {
+                    jsonTrade.addProperty(INGREDIENT_2_MATERIAL, Registries.ITEM.getId(offer.getSecondBuyItem().get().itemStack().getItem()).toString());
+                    jsonTrade.addProperty(INGREDIENT_2_AMOUNT, offer.getSecondBuyItem().get().itemStack().getCount());
+                }
+                jsonTrades.add(jsonTrade);
+            }
+        }
+        FileManager.saveToFile(fileName, jsonTrades);
+    }
 }
