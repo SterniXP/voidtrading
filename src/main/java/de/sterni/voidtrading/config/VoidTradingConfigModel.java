@@ -45,4 +45,6 @@ public class VoidTradingConfigModel {
      * if disabled, all custom trades with the same result item will be added at once.
      */
     public boolean enableCustomTradeCycling = false;
+
+    public boolean consumeItemOnTradeChange = true;
 }

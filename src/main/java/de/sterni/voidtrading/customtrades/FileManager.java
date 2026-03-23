@@ -1,12 +1,10 @@
 package de.sterni.voidtrading.customtrades;
 
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -17,7 +15,7 @@ import static de.sterni.voidtrading.VoidTrading.LOGGER;
 
 public class FileManager {
 
-    public static final String dir = Path.of("mods","voidtrading", "customtrades").toString();
+    public static final String dir = Path.of("config", "customtrades").toString();
 
     public static void saveToFile(@NotNull String fileName, @NotNull JsonElement line) {
         String path = Path.of(dir, fileName).toString();
@@ -65,17 +63,6 @@ public class FileManager {
             } catch (IOException ex) {
                 LOGGER.warn("Could not create {}, reason: {}", file.getName(), ex.getMessage());
             }
-        }
-    }
-
-    private static JsonElement readFile(@NotNull Path path) {
-        try (BufferedReader reader = Files.newBufferedReader(path)) {
-            StringBuilder builder = new StringBuilder();
-            reader.lines().toList().forEach(builder::append);
-            return JsonParser.parseString(builder.toString());
-        } catch (IOException ex) {
-            LOGGER.warn("Failed to read file \"{}\"! Reason: {}", path.getFileName(), ex.getMessage());
-            return new JsonArray();
         }
     }
 }

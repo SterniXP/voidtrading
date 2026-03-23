@@ -29,7 +29,7 @@
 		"minecraft": "~1.21.4",
 		"java": ">=21",
 		"fabric-api": "*",
-		"io.wispforest:owo-lib": "0.12.20+1.21.4"
+		"owo": "0.12.20+1.21.4"
 	},
 	"suggests": {
 		"another-mod": "*"

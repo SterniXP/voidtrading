@@ -18,25 +18,25 @@ import static de.sterni.voidtrading.VoidTrading.LOGGER;
 
 public abstract class ListEditor {
     protected static final JsonElement EMPTY_JSON_ARRAY = new JsonArray();
-    private static final String INGREDIENT_1_MATERIAL = "INGREDIENT_1_MATERIAL";
-    private static final String INGREDIENT_1_AMOUNT = "INGREDIENT_1_AMOUNT";
-    private static final String INGREDIENT_2_MATERIAL = "INGREDIENT_2_MATERIAL";
-    private static final String INGREDIENT_2_AMOUNT = "INGREDIENT_2_AMOUNT";
-    private static final String RESULT_MATERIAL = "RESULT_MATERIAL";
-    private static final String RESULT_AMOUNT = "RESULT_AMOUNT";
-    private static final String MAX_USES = "MAX_USES";
+    public static final String INGREDIENT_1_MATERIAL = "INGREDIENT_1_MATERIAL";
+    public static final String INGREDIENT_1_AMOUNT = "INGREDIENT_1_AMOUNT";
+    public static final String INGREDIENT_2_MATERIAL = "INGREDIENT_2_MATERIAL";
+    public static final String INGREDIENT_2_AMOUNT = "INGREDIENT_2_AMOUNT";
+    public static final String RESULT_MATERIAL = "RESULT_MATERIAL";
+    public static final String RESULT_AMOUNT = "RESULT_AMOUNT";
+    public static final String MAX_USES = "MAX_USES";
     /**
      * Can be used to update trades, internally uses TradeOffer#uses to store the state (uses == 0 -> active)
      */
     private static final String ACTIVE = "ACTIVE";
 
-    final Map<Item, LinkedHashSet<TradeOffer>> trades = new HashMap<>();
+    final Map<Identifier, LinkedHashSet<TradeOffer>> trades = new HashMap<>();
 
     public abstract void loadFromFile();
 
     public String getTradesAsString(boolean onlyActive) {
         StringBuilder builder = new StringBuilder(200);
-        for (Map.Entry<Item, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
+        for (Map.Entry<Identifier, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
             builder.append(trade.getKey()).append(":\n");
             LinkedHashSet<TradeOffer> offers = trade.getValue();
             int i = 1;
@@ -61,7 +61,7 @@ public abstract class ListEditor {
     }
 
     public void addTrade(@NonNull TradeOffer offer) {
-        Item resultItem = offer.getSellItem().getItem();
+        Identifier resultItem = Registries.ITEM.getId(offer.getSellItem().getItem());
         trades.computeIfAbsent(resultItem, k -> new LinkedHashSet<>()).add(offer);
     }
 
@@ -71,9 +71,9 @@ public abstract class ListEditor {
      * @param resultItem the result item of the trade to remove
      * @return the removed trade offer
      * @throws NoSuchElementException if the trade does not exist
-     * @see #removeTrade(Item, int) for removing a specific trade with the given result item and index
+     * @see #removeTrade(Identifier, int) for removing a specific trade with the given result item and index
      */
-    public TradeOffer removeTrade(@NonNull Item resultItem) throws NoSuchElementException {
+    public TradeOffer removeTrade(@NonNull Identifier resultItem) throws NoSuchElementException {
         return removeTrade(resultItem, 1);
     }
 
@@ -85,7 +85,7 @@ public abstract class ListEditor {
      * @return the removed trade offer
      * @throws NoSuchElementException if the trade does not exist
      */
-    public TradeOffer removeTrade(@NonNull Item resultItem, int tradeIndex) throws NoSuchElementException {
+    public TradeOffer removeTrade(@NonNull Identifier resultItem, int tradeIndex) throws NoSuchElementException {
         Set<TradeOffer> offers = trades.get(resultItem);
         if (offers == null || offers.size() < tradeIndex || tradeIndex <= 0) {
             throw new NoSuchElementException("Der Handel [" + resultItem + ":" + tradeIndex + "] existiert nicht.");
@@ -110,7 +110,7 @@ public abstract class ListEditor {
                 if (resultItem.isPresent()) {
                     Item item = resultItem.get();
                     TradeOffer offer = readInTradeOffer(element.getAsJsonObject(), item);
-                    trades.computeIfAbsent(item, k -> new LinkedHashSet<>()).add(offer);
+                    trades.computeIfAbsent(Registries.ITEM.getId(item), k -> new LinkedHashSet<>()).add(offer);
                 } else {
                     logInvalidTrade(element.getAsJsonObject(), "Ungültiges Ergebnis Material: " + element.getAsJsonObject().get(RESULT_MATERIAL));
                 }
@@ -157,7 +157,7 @@ public abstract class ListEditor {
     }
 
     public int containsTrade(@NonNull TradeOffer offer) {
-        Set<TradeOffer> offers = trades.get(offer.getSellItem().getItem());
+        Set<TradeOffer> offers = trades.get(Registries.ITEM.getId(offer.getSellItem().getItem()));
         if (offers != null) {
             int index = 0;
             for (TradeOffer tradeOffer : offers) {
@@ -184,7 +184,7 @@ public abstract class ListEditor {
 
     public void safeToFile(@NonNull String fileName) {
         JsonArray jsonTrades = new JsonArray();
-        for (Map.Entry<Item, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
+        for (Map.Entry<Identifier, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
             for (TradeOffer offer : trade.getValue()) {
                 JsonObject jsonTrade = new JsonObject();
                 jsonTrade.addProperty(RESULT_MATERIAL, Registries.ITEM.getId(offer.getSellItem().getItem()).toString());
@@ -205,5 +205,9 @@ public abstract class ListEditor {
 
     private boolean isOfferActive(@NonNull TradeOffer offer) {
         return offer.getUses() == 0;
+    }
+
+    public Set<Identifier> getIdentifiers() {
+        return trades.keySet();
     }
 }

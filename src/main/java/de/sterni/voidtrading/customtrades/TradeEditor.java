@@ -75,8 +75,8 @@ public class TradeEditor {
             return false;
         }
         List<TradeOffer> currentCustomTrades = materialsEditor.getCurrentCustomTrades(villager);
-        for (TradeOffer trade : currentCustomTrades) {
-            materialsEditor.offersAreEqual(trade, )
+        if (tradeOfferListsAreEqual(currentCustomTrades, newTrades.stream().toList())) {
+            return false;
         }
         villager.getOffers().removeAll(currentCustomTrades);
         villager.getOffers().addAll(newTrades);

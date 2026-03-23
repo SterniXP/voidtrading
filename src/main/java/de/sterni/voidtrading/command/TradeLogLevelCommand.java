@@ -27,6 +27,7 @@ public class TradeLogLevelCommand {
             context.getSource().sendFeedback(() -> Text.literal(MessageFormat.format("The void trading log level has been set to {0}.", logLevel)), true);
         } catch (IllegalArgumentException ignored) {
             context.getSource().sendFeedback(() -> Text.literal(MessageFormat.format("Failed to set log level to \"{0}\".\nAllowed Values: {1}", logLevelString, Arrays.toString(LogLevel.values()))), true);
+            return 0;
         }
         return 1;
     }
