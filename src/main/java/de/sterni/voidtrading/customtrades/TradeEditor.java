@@ -26,7 +26,7 @@ public class TradeEditor {
      */
     public boolean tryEditTrades(VillagerEntity villager, Item handItem) {
         removeBannedTrades(villager);
-        if (handItem == null || Items.AIR.equals(handItem)) {
+        if (Items.AIR.equals(handItem)) {
             return false;
         }
         if (CONFIG.enableCustomTradeCycling()) {
@@ -36,6 +36,7 @@ public class TradeEditor {
         }
     }
 
+    // TODO: can we move this to on Entity load and save some performance on right clicks? / necessary?
     private void removeBannedTrades(VillagerEntity villager) {
         villager.getOffers().removeIf(offer -> blackListEditor.containsTrade(offer) != -1);
     }
@@ -47,7 +48,7 @@ public class TradeEditor {
         }
         List<TradeOffer> currentCustomTrades = materialsEditor.getCurrentCustomTrades(villager);
         if (newTrades.size() == 1 && currentCustomTrades.stream().anyMatch(
-                trade -> materialsEditor.offersAreEqual(trade, newTrades.iterator().next()))) {
+                trade -> ListEditor.offersAreEqual(trade, newTrades.iterator().next()))) {
             return false;
         }
         int index = -1;
@@ -86,7 +87,7 @@ public class TradeEditor {
     private boolean tradeOfferListsAreEqual(@NonNull List<TradeOffer> list1, @NonNull List<TradeOffer> list2) {
         if (list1.size() != list2.size()) return false;
         for (int i = 0; i < list1.size(); i++) {
-            if (!materialsEditor.offersAreEqual(list1.get(i), list2.get(i))) {
+            if (!ListEditor.offersAreEqual(list1.get(i), list2.get(i))) {
                 return false;
             }
         }

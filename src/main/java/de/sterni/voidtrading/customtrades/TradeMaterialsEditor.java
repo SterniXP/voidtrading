@@ -1,7 +1,9 @@
 package de.sterni.voidtrading.customtrades;
 
+import lombok.NonNull;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.Item;
+import net.minecraft.registry.Registries;
 import net.minecraft.village.TradeOffer;
 import net.minecraft.village.TradeOfferList;
 import org.jetbrains.annotations.NotNull;
@@ -17,6 +19,7 @@ public class TradeMaterialsEditor extends ListEditor {
     public static final String FILE_NAME = LIST_NAME+".json";
 
     public TradeMaterialsEditor() {
+        super(LIST_NAME);
         loadFromFile();
     }
 
@@ -32,6 +35,16 @@ public class TradeMaterialsEditor extends ListEditor {
         setTrades(FileManager.loadListFromFile(FILE_NAME, EMPTY_JSON_ARRAY));
     }
 
+    @Override
+    public int addTrade(@NonNull TradeOffer offer) {
+        int newIndex = super.addTrade(offer);
+        int indexBlackList = TradeBlackListEditor.getInstance().containsTrade(offer);
+        if (indexBlackList != -1) {
+            TradeBlackListEditor.getInstance().removeTrade(Registries.ITEM.getId(offer.getSellItem().getItem()), indexBlackList);
+        }
+        return newIndex;
+    }
+
     /**
      * returns the TradeOffers with the given Item as the result or an empty set
      * <p>Note: returned TradeOffers should be copied before use to prevent side effects
@@ -39,7 +52,7 @@ public class TradeMaterialsEditor extends ListEditor {
      * @return the set of TradeOffers with the given result item or an empty set
      */
     public LinkedHashSet<TradeOffer> getTradesWithResult(@NotNull Item item) {
-        return trades.getOrDefault(item, new LinkedHashSet<>());
+        return trades.getOrDefault(Registries.ITEM.getId(item), new LinkedHashSet<>());
     }
 
     public List<TradeOffer> getCurrentCustomTrades(@NotNull VillagerEntity villager) {
@@ -51,5 +64,14 @@ public class TradeMaterialsEditor extends ListEditor {
             }
         }
         return result;
+    }
+
+    public String getListName() {
+        return LIST_NAME;
+    }
+
+    @Override
+    public void saveToFile() {
+        saveToFile(FILE_NAME);
     }
 }
