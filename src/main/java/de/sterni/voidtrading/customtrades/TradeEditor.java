@@ -46,7 +46,7 @@ public class TradeEditor {
     }
 
     private boolean cycleTradeFor(VillagerEntity villager, Item handItem) {
-        Set<TradeOffer> newTrades = materialsEditor.getTradesWithResult(handItem);
+        Set<TradeOffer> newTrades = materialsEditor.getTradesWithResult(handItem, true);
         if (newTrades.isEmpty()) {
             return false;
         }
@@ -75,7 +75,7 @@ public class TradeEditor {
     }
 
     private boolean addAllTradesFor(@NonNull VillagerEntity villager, @NonNull Item handItem) {
-        Set<TradeOffer> newTrades = materialsEditor.getTradesWithResult(handItem);
+        Set<TradeOffer> newTrades = materialsEditor.getTradesWithResult(handItem, false);
         if (newTrades.isEmpty()) {
             return false;
         }
@@ -84,12 +84,12 @@ public class TradeEditor {
             return false;
         }
         villager.getOffers().removeAll(currentCustomTrades);
-        villager.getOffers().addAll(newTrades);
+        villager.getOffers().addAll(newTrades.stream().map(TradeOffer::copy).toList());
         return true;
     }
 
     private boolean tradeOfferListContains(@NonNull List<TradeOffer> containsOther, @NonNull List<TradeOffer> other) {
         if (containsOther.size() < other.size()) return false;
-        return other.stream().filter(offer -> containsOther.stream().anyMatch(trade -> ListEditor.offersAreEqual(trade, offer))).toList().isEmpty();
+        return other.stream().allMatch(offer -> containsOther.stream().anyMatch(trade -> ListEditor.offersAreEqual(trade, offer)));
     }
 }

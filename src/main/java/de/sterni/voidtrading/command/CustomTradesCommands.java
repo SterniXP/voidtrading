@@ -207,7 +207,7 @@ public class CustomTradesCommands {
     }
 
     private CompletableFuture<Suggestions> suggestIndices(CommandContext<ServerCommandSource> context, SuggestionsBuilder builder, ListEditor listEditor) {
-        int size = listEditor.getTradesWithResult(getItemStackArgument(context, ListEditor.RESULT_MATERIAL).getItem()).size();
+        int size = listEditor.getTradesWithResult(getItemStackArgument(context, ListEditor.RESULT_MATERIAL).getItem(), false).size();
         for (int i = 1; i <= size; i++) if (String.valueOf(i).contains(builder.getRemaining())) builder.suggest(i);
         return builder.buildFuture();
     }

@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static de.sterni.voidtrading.VoidTrading.LOGGER;
 
@@ -318,8 +319,12 @@ public abstract class ListEditor {
      * @param item the type of item the player receives from the trade as a result
      * @return the set of TradeOffers with the given result item or an empty set
      */
-    public LinkedHashSet<TradeOffer> getTradesWithResult(@NotNull Item item) {
-        return trades.getOrDefault(Registries.ITEM.getId(item), new LinkedHashSet<>());
+    public LinkedHashSet<TradeOffer> getTradesWithResult(@NotNull Item item, boolean onlyActive) {
+        LinkedHashSet<TradeOffer> result = trades.getOrDefault(Registries.ITEM.getId(item), new LinkedHashSet<>());
+        if (onlyActive) {
+            result = result.stream().filter(this::isOfferActive).collect(Collectors.toCollection(LinkedHashSet::new));
+        }
+        return result;
     }
 
     public abstract String getListName();
