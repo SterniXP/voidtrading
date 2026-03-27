@@ -2,22 +2,28 @@ package de.sterni.voidtrading.customtrades;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
 import lombok.NonNull;
 import net.minecraft.component.ComponentChanges;
-import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.DynamicRegistryManager;
+import net.minecraft.predicate.ComponentPredicate;
 import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryOps;
 import net.minecraft.util.Identifier;
 import net.minecraft.village.TradeOffer;
 import net.minecraft.village.TradedItem;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.Set;
 
 import static de.sterni.voidtrading.VoidTrading.LOGGER;
 
@@ -39,6 +45,8 @@ public abstract class ListEditor {
     public static final String ACTIVE = "ACTIVE";
 
     public static final int DEFAULT_MAX_USES = 12;
+
+    public static final TradedItem DEFAULT_SECOND_BUY_ITEM = new TradedItem(ItemStack.EMPTY.getItem(), ItemStack.EMPTY.getCount());
 
     protected final Map<Identifier, LinkedHashSet<TradeOffer>> trades = new HashMap<>();
 
@@ -82,7 +90,7 @@ public abstract class ListEditor {
     }
 
     private void appendItemStack(@NonNull StringBuilder builder, @NonNull ItemStack itemStack) {
-        builder.append(itemStack.getCount()).append("x").append(itemStack.getItem());
+        builder.append(itemStack.getItem()).append(" x").append(itemStack.getCount());
     }
 
     /**
@@ -98,18 +106,6 @@ public abstract class ListEditor {
         Identifier resultItem = Registries.ITEM.getId(offer.getSellItem().getItem());
         trades.computeIfAbsent(resultItem, k -> new LinkedHashSet<>()).add(offer);
         return trades.get(resultItem).size() - 1;
-    }
-
-    /**
-     * removes the first trade with the given result item and returns it. If the trade does not exist, an IllegalArgumentException is thrown.
-     *
-     * @param resultItem the result item of the trade to remove
-     * @return the removed trade offer
-     * @throws NoSuchElementException if the trade does not exist
-     * @see #removeTrade(Identifier, int) for removing a specific trade with the given result item and index
-     */
-    public TradeOffer removeTrade(@NonNull Identifier resultItem) throws NoSuchElementException {
-        return removeTrade(resultItem, 1);
     }
 
     /**
@@ -168,26 +164,41 @@ public abstract class ListEditor {
      * @throws NullPointerException if the JSON object is invalid (e.g. missing required fields, invalid material, etc.)
      */
     private TradeOffer readInTradeOffer(JsonObject tradeAsJson, Item resultItem) throws NullPointerException {
-        // TODO: read in components of items
         Item firstBuyItem = Registries.ITEM.get(Identifier.of(tradeAsJson.get(INGREDIENT_1_MATERIAL).getAsString()));
+        ComponentChanges firstBuyItemComponents = deserializeComponents(tradeAsJson.get(INGREDIENT_1_COMPONENTS));
         int amountFirstBuyItem = tradeAsJson.get(INGREDIENT_1_AMOUNT).getAsInt();
-        TradedItem firstTradedItem = new TradedItem(firstBuyItem, amountFirstBuyItem);
+        ItemStack firstBuyStack = new ItemStack(firstBuyItem);
+        firstBuyStack.applyChanges(firstBuyItemComponents);
+        firstBuyStack.setCount(amountFirstBuyItem);
+        TradedItem firstTradedItem = new TradedItem(
+                firstBuyStack.getRegistryEntry(), amountFirstBuyItem, ComponentPredicate.of(firstBuyStack.getComponents())
+        );
 
         Optional<TradedItem> secondTradedItem = Optional.empty();
         JsonElement secondBuyItemJson = tradeAsJson.get(INGREDIENT_2_MATERIAL);
-        if (!secondBuyItemJson.isJsonNull()) {
+        if (secondBuyItemJson != null && !secondBuyItemJson.isJsonNull()) {
             Item secondBuyItem = Registries.ITEM.get(Identifier.of(secondBuyItemJson.getAsString()));
+            ComponentChanges secondBuyItemComponents = deserializeComponents(tradeAsJson.get(INGREDIENT_2_COMPONENTS));
             int amountSecondBuyItem = tradeAsJson.get(INGREDIENT_2_AMOUNT).getAsInt();
-            secondTradedItem = Optional.of(new TradedItem(secondBuyItem, amountSecondBuyItem));
+            ItemStack secondBuyStack = new ItemStack(secondBuyItem);
+            secondBuyStack.applyChanges(secondBuyItemComponents);
+            secondBuyStack.setCount(amountSecondBuyItem);
+            secondTradedItem = Optional.of(new TradedItem(
+                    secondBuyStack.getRegistryEntry(), amountSecondBuyItem, ComponentPredicate.of(secondBuyStack.getComponents())
+            ));
         }
 
+        int resultAmount = tradeAsJson.get(RESULT_AMOUNT).getAsInt();
+        ComponentChanges resultItemComponents = deserializeComponents(tradeAsJson.get(RESULT_COMPONENTS));
+        ItemStack resultStack = new ItemStack(resultItem);
+        resultStack.applyChanges(resultItemComponents);
+        resultStack.setCount(resultAmount);
+
+        int maxUses = tradeAsJson.get(MAX_USES).getAsInt();
         // default to true if missing
         boolean active = !tradeAsJson.has(ACTIVE) || tradeAsJson.get(ACTIVE).getAsBoolean();
 
-        int resultAmount = tradeAsJson.get(RESULT_AMOUNT).getAsInt();
-        int maxUses = tradeAsJson.get(MAX_USES).getAsInt();
-
-        TradeOffer offer = new TradeOffer(firstTradedItem, secondTradedItem, new ItemStack(resultItem, resultAmount), maxUses, 1, 0.2F);
+        TradeOffer offer = new TradeOffer(firstTradedItem, secondTradedItem, resultStack, maxUses, 1, 0.2F);
         return setOfferActive(offer, active);
     }
 
@@ -214,9 +225,11 @@ public abstract class ListEditor {
         Optional<TradedItem> offerSecondBuyItem = offer.getSecondBuyItem();
         Optional<TradedItem> otherSecondBuyItem = other.getSecondBuyItem();
         boolean xor = offerSecondBuyItem.isPresent() ^ otherSecondBuyItem.isPresent();
-        return !xor && offer.getOriginalFirstBuyItem().equals(other.getOriginalFirstBuyItem())
+        return !xor && ItemStack.areEqual(offer.getOriginalFirstBuyItem(), other.getOriginalFirstBuyItem())
                 && offerSecondBuyItem.equals(otherSecondBuyItem)
-                && offer.getSellItem().equals(other.getSellItem())
+                && ItemStack.areEqual(offerSecondBuyItem.orElse(DEFAULT_SECOND_BUY_ITEM).itemStack(),
+                    otherSecondBuyItem.orElse(DEFAULT_SECOND_BUY_ITEM).itemStack())
+                && ItemStack.areEqual(offer.getSellItem(), other.getSellItem())
                 && offer.getMaxUses() == other.getMaxUses()
                 && offer.getPriceMultiplier() == other.getPriceMultiplier()
                 && offer.getMerchantExperience() == other.getMerchantExperience();
@@ -229,35 +242,42 @@ public abstract class ListEditor {
         for (Map.Entry<Identifier, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
             for (TradeOffer offer : trade.getValue()) {
                 JsonObject jsonTrade = new JsonObject();
-                // TODO: save components of items
                 jsonTrade.addProperty(RESULT_MATERIAL, Registries.ITEM.getId(offer.getSellItem().getItem()).toString());
-                jsonTrade.addProperty(RESULT_COMPONENTS, );
+                jsonTrade.add(RESULT_COMPONENTS, serializeComponents(offer.getSellItem()));
                 jsonTrade.addProperty(RESULT_AMOUNT, offer.getSellItem().getCount());
-                jsonTrade.addProperty(MAX_USES, offer.getMaxUses());
-                jsonTrade.addProperty(ACTIVE, isOfferActive(offer));
                 jsonTrade.addProperty(INGREDIENT_1_MATERIAL, Registries.ITEM.getId(offer.getOriginalFirstBuyItem().getItem()).toString());
+                jsonTrade.add(INGREDIENT_1_COMPONENTS, serializeComponents(offer.getOriginalFirstBuyItem()));
                 jsonTrade.addProperty(INGREDIENT_1_AMOUNT, offer.getOriginalFirstBuyItem().getCount());
                 if (offer.getSecondBuyItem().isPresent()) {
                     jsonTrade.addProperty(INGREDIENT_2_MATERIAL, Registries.ITEM.getId(offer.getSecondBuyItem().get().itemStack().getItem()).toString());
+                    jsonTrade.add(INGREDIENT_2_COMPONENTS, serializeComponents(offer.getSecondBuyItem().get().itemStack()));
                     jsonTrade.addProperty(INGREDIENT_2_AMOUNT, offer.getSecondBuyItem().get().itemStack().getCount());
                 }
+                jsonTrade.addProperty(MAX_USES, offer.getMaxUses());
+                jsonTrade.addProperty(ACTIVE, isOfferActive(offer));
                 jsonTrades.add(jsonTrade);
             }
         }
         FileManager.saveToFile(fileName, jsonTrades);
     }
 
-    private JsonElement serializeComponents(ItemStack stack, DynamicRegistryManager registryManager) {
+    private JsonElement serializeComponents(ItemStack stack) {
         ComponentChanges componentChanges = stack.getComponentChanges();
         if (componentChanges.isEmpty()) {
-            return JsonNull.INSTANCE;
+            return EMPTY_JSON_ARRAY;
         }
-        RegistryOps<JsonElement> registryOps = RegistryOps.of(JsonOps.INSTANCE, registryManager);
+        return ComponentChanges.CODEC.encodeStart(JsonOps.INSTANCE, componentChanges).getOrThrow();
+    }
 
+    private ComponentChanges deserializeComponents(JsonElement json) {
+        if (json == null || json.isJsonNull() || (json.isJsonArray() && json.getAsJsonArray().isEmpty())) {
+            return ComponentChanges.EMPTY;
+        }
+        return ComponentChanges.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
     }
 
     private boolean isOfferActive(@NonNull TradeOffer offer) {
-        return offer.getUses() == 0;
+        return !offer.hasBeenUsed();
     }
 
     public static TradeOffer setOfferActive(@NonNull TradeOffer offer, boolean active) {
@@ -291,7 +311,17 @@ public abstract class ListEditor {
     public Set<Identifier> getIdentifiers() {
         return trades.keySet();
     }
-    
+
+    /**
+     * returns the TradeOffers with the given Item as the result or an empty set
+     * <p>Note: returned TradeOffers should be copied before use to prevent side effects
+     * @param item the type of item the player receives from the trade as a result
+     * @return the set of TradeOffers with the given result item or an empty set
+     */
+    public LinkedHashSet<TradeOffer> getTradesWithResult(@NotNull Item item) {
+        return trades.getOrDefault(Registries.ITEM.getId(item), new LinkedHashSet<>());
+    }
+
     public abstract String getListName();
 
     public static ListEditor getInstance(String listName) {

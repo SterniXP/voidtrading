@@ -26,19 +26,19 @@ public abstract class VillagerInteractMixin {
     public abstract VillagerData getVillagerData();
 
     @Unique
-    private final TradeEditor tradeEditor = new TradeEditor();
+    private final TradeEditor tradeEditor = TradeEditor.getInstance();
 
     @Inject(method = "interactMob", at = @At("HEAD"), cancellable = true)
     private void checkTrades(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
         if (player.getWorld().isClient()
-                || player.isSneaking()
                 || player.getStackInHand(hand).isOf(Items.VILLAGER_SPAWN_EGG)
                 || getVillagerData().getProfession().equals(VillagerProfession.NITWIT)
                 || getVillagerData().getProfession().equals(VillagerProfession.NONE)) {
             return;
         }
         VillagerEntity villager = (VillagerEntity) (Object) this;
-        if (tradeEditor.tryEditTrades(villager, player.getStackInHand(hand).getItem())) {
+        tradeEditor.removeBannedTrades(villager);
+        if (!player.isSneaking() && tradeEditor.tryEditTrades(villager, player.getStackInHand(hand).getItem())) {
             if (CONFIG.consumeItemOnTradeChange()) {
                 player.getStackInHand(hand).decrementUnlessCreative(1, player);
             }

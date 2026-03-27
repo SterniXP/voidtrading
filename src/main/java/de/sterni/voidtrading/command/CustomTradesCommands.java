@@ -9,15 +9,18 @@ import de.sterni.voidtrading.VoidTrading;
 import de.sterni.voidtrading.customtrades.ListEditor;
 import de.sterni.voidtrading.customtrades.TradeBlackListEditor;
 import de.sterni.voidtrading.customtrades.TradeMaterialsEditor;
+import de.sterni.voidtrading.mixin.MerchantAccessorMixin;
 import lombok.NonNull;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.ItemStackArgument;
+import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.predicate.ComponentPredicate;
 import net.minecraft.registry.Registries;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
@@ -29,6 +32,7 @@ import net.minecraft.village.TradedItem;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import static com.mojang.brigadier.arguments.BoolArgumentType.bool;
 import static com.mojang.brigadier.arguments.IntegerArgumentType.integer;
@@ -45,7 +49,8 @@ public class CustomTradesCommands {
     public static final TextColor YELLOW = TextColor.fromRgb(0xFFFF00);
     public static final ItemStack DEFAULT_INGREDIENT = new ItemStack(Items.EMERALD, 8);
     public static final String BAN = "ban?";
-    public static final String ONLYACTIVE = "onlyactive?";
+    private static final String RESTORE = "restore?";
+    public static final String ONLY_ACTIVE = "onlyactive?";
     private static final String INDEX = "index";
     private static final String LISTS_NAMES = "list names";
 
@@ -62,12 +67,14 @@ public class CustomTradesCommands {
         });
     }
 
-    private static void registerListCommands(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CustomTradesCommands instance) {
+    private static void registerListCommands(CommandDispatcher<ServerCommandSource> dispatcher,
+                                             CommandRegistryAccess registryAccess,
+                                             CustomTradesCommands instance) {
         dispatcher.register(literal("customtrades")
                 .executes(context -> defaultCommandResponse(instance, context))
                 .then(literal("list")
                         .executes(instance::showTradeList)
-                        .then(argument(ONLYACTIVE, bool())
+                        .then(argument(ONLY_ACTIVE, bool())
                                 .executes(instance::showTradeList)
                         )
                         .then(literal("add")
@@ -104,9 +111,13 @@ public class CustomTradesCommands {
                                 .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
                                         .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
-                                        .executes(instance::removeWhiteTrade)
-                                        .then(argument(BAN, bool())
-                                                .executes(instance::removeWhiteTrade)
+                                        .executes(context -> instance.removeTrade(context, instance.tradeMaterialsEditor, instance.tradeBlackListEditor, BAN, true))
+                                        .then(argument(INDEX, integer(1))
+                                                .suggests((context, builder) -> instance.suggestIndices(context, builder, instance.tradeMaterialsEditor))
+                                                .executes(context -> instance.removeTrade(context, instance.tradeMaterialsEditor, instance.tradeBlackListEditor, BAN, true))
+                                                .then(argument(BAN, bool())
+                                                        .executes(context -> instance.removeTrade(context, instance.tradeMaterialsEditor, instance.tradeBlackListEditor, BAN, true))
+                                                )
                                         )
                                 )
                         )
@@ -115,8 +126,10 @@ public class CustomTradesCommands {
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
                                         .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
                                         .then(argument(INDEX, integer(1))
-                                                .then(argument(ListEditor.ACTIVE, bool()))
-                                                .executes(context -> instance.setActive(context, instance.tradeMaterialsEditor))
+                                                .suggests((context, builder) -> instance.suggestIndices(context, builder, instance.tradeMaterialsEditor))
+                                                .then(argument(ListEditor.ACTIVE, bool())
+                                                        .executes(context -> instance.setActive(context, instance.tradeMaterialsEditor))
+                                                )
                                         )
                                 )
                         )
@@ -124,11 +137,13 @@ public class CustomTradesCommands {
         );
     }
 
-    private static void registerBlacklistCommands(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CustomTradesCommands instance) {
+    private static void registerBlacklistCommands(CommandDispatcher<ServerCommandSource> dispatcher,
+                                                  CommandRegistryAccess registryAccess,
+                                                  CustomTradesCommands instance) {
         dispatcher.register(literal("customtrades")
                 .then(literal("blacklist")
                         .executes(instance::showBlackList)
-                        .then(argument(ONLYACTIVE, bool())
+                        .then(argument(ONLY_ACTIVE, bool())
                                 .executes(instance::showBlackList)
                         )
                         .then(literal("add")
@@ -165,9 +180,13 @@ public class CustomTradesCommands {
                                 .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
                                         .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
-                                        .executes(instance::removeWhiteTrade)
-                                        .then(argument(BAN, bool())
-                                                .executes(instance::removeWhiteTrade)
+                                        .executes(context -> instance.removeTrade(context, instance.tradeBlackListEditor, instance.tradeMaterialsEditor, RESTORE, false))
+                                        .then(argument(INDEX, integer(1))
+                                                .suggests((context, builder) -> instance.suggestIndices(context, builder, instance.tradeBlackListEditor))
+                                                .executes(context -> instance.removeTrade(context, instance.tradeBlackListEditor, instance.tradeMaterialsEditor, RESTORE, false))
+                                                .then(argument(RESTORE, bool())
+                                                        .executes(context -> instance.removeTrade(context, instance.tradeBlackListEditor, instance.tradeMaterialsEditor, RESTORE, false))
+                                                )
                                         )
                                 )
                         )
@@ -176,6 +195,7 @@ public class CustomTradesCommands {
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
                                         .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
                                         .then(argument(INDEX, integer(1))
+                                                .suggests((context, builder) -> instance.suggestIndices(context, builder, instance.tradeBlackListEditor))
                                                 .then(argument(ListEditor.ACTIVE, bool())
                                                         .executes(context -> instance.setActive(context, instance.tradeBlackListEditor))
                                                 )
@@ -186,40 +206,51 @@ public class CustomTradesCommands {
         );
     }
 
+    private CompletableFuture<Suggestions> suggestIndices(CommandContext<ServerCommandSource> context, SuggestionsBuilder builder, ListEditor listEditor) {
+        int size = listEditor.getTradesWithResult(getItemStackArgument(context, ListEditor.RESULT_MATERIAL).getItem()).size();
+        for (int i = 1; i <= size; i++) if (String.valueOf(i).contains(builder.getRemaining())) builder.suggest(i);
+        return builder.buildFuture();
+    }
+
     private static void registerReloadCommands(CommandDispatcher<ServerCommandSource> dispatcher, CustomTradesCommands instance) {
+        final String successMessage = "neu von der Festplatte geladen.";
         dispatcher.register(literal("customtrades")
                 .then(literal("reload")
                         .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
-                        .executes(instance::reloadLists)
+                        .executes(context -> instance.makeListsDo(context, ListEditor::loadFromFile, successMessage))
                         .then(argument(LISTS_NAMES, greedyString())
-                                .suggests((context, builder) -> {
-                                    ListEditor.getAllEditorNames().stream().filter(name -> name.toLowerCase().contains(builder.getRemaining().toLowerCase())).forEach(builder::suggest);
-                                    return builder.buildFuture();
-                                })
-                                .executes(instance::reloadLists)
+                                .suggests(CustomTradesCommands::suggestListNames)
+                                .executes(context -> instance.makeListsDo(context, ListEditor::loadFromFile, successMessage))
                         )
                 )
         );
     }
 
     private static void registerSaveCommands(CommandDispatcher<ServerCommandSource> dispatcher, CustomTradesCommands instance) {
+        final String successMessage = "erfolgreich gespeichert.";
         dispatcher.register(literal("customtrades")
                 .then(literal("save")
                         .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
-                        .executes(context -> {
-                            ListEditor.getAllEditors().forEach(ListEditor::saveToFile);
-                            instance.sendMessageToSender(context.getSource(), "Alle Listen wurden erfolgreich gespeichert.", TEAL, true);
-                            return 1;
-                        })
+                        .executes(context -> instance.makeListsDo(context, ListEditor::saveToFile, successMessage))
+                        .then(argument(LISTS_NAMES, greedyString())
+                                .suggests(CustomTradesCommands::suggestListNames)
+                                .executes(context -> instance.makeListsDo(context, ListEditor::saveToFile, successMessage))
+                        )
                 )
         );
     }
 
-    private int reloadLists(CommandContext<ServerCommandSource> context) {
+    private static CompletableFuture<Suggestions> suggestListNames(CommandContext<ServerCommandSource> context, SuggestionsBuilder builder) {
+        ListEditor.getAllEditorNames().stream().filter(name -> name.toLowerCase().contains(builder.getRemaining().toLowerCase())).forEach(builder::suggest);
+        builder.suggest("ALL");
+        return builder.buildFuture();
+    }
+
+    private int makeListsDo(CommandContext<ServerCommandSource> context, Consumer<ListEditor> method, String wereWhat) {
         String listsToReload = getOptionalArgument(context, LISTS_NAMES, String.class).orElse("ALL");
         if (listsToReload.contains("ALL")) {
-            ListEditor.getAllEditors().forEach(ListEditor::loadFromFile);
-            sendMessageToSender(context.getSource(), "Alle Listen wurden neu von der Festplatte geladen.", TEAL, true);
+            ListEditor.getAllEditors().forEach(method);
+            sendMessageToSender(context.getSource(), "Alle Listen wurden ", TEAL, true);
             return 1;
         }
         String[] listNames = listsToReload.split(" ");
@@ -227,17 +258,17 @@ public class CustomTradesCommands {
         for (String listName : listNames) {
             ListEditor listEditor = ListEditor.getInstance(listName);
             if (listEditor != null) {
-                listEditor.loadFromFile();
-                sendMessageToSender(context.getSource(), "Die " + listName + " wurde neu von der Festplatte geladen.", TEAL, true);
+                method.accept(listEditor);
+                sendMessageToSender(context.getSource(), "Die " + listName + " wurde " + wereWhat, TEAL, true);
                 result |= 1;
             } else {
-                sendMessageToSender(context.getSource(), "Die Liste '" + listName + "' existiert nicht. Verfügbare Listen: " + ListEditor.getAllEditors(), RED, true);
+                sendMessageToSender(context.getSource(), "Die Liste '" + listName + "' existiert nicht. Verfügbare Listen: " + ListEditor.getAllEditorNames(), RED, true);
             }
         }
         return result;
     }
 
-    private int setActive(CommandContext<ServerCommandSource> context, ListEditor listEditor) throws CommandSyntaxException {
+    private int setActive(CommandContext<ServerCommandSource> context, ListEditor listEditor) {
         Identifier itemId = Registries.ITEM.getId(getItemStackArgument(context, ListEditor.RESULT_MATERIAL).getItem());
         int index = context.getArgument(INDEX, Integer.class);
         boolean active = context.getArgument(ListEditor.ACTIVE, Boolean.class);
@@ -251,33 +282,27 @@ public class CustomTradesCommands {
         return 1;
     }
 
-    private int removeWhiteTrade(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+    private int removeTrade(CommandContext<ServerCommandSource> context, ListEditor removeFrom, ListEditor addTo, String shouldAddName, boolean closeScreens) {
         Identifier itemId = Registries.ITEM.getId(getItemStackArgument(context, ListEditor.RESULT_MATERIAL).getItem());
-        Optional<Boolean> ban = getOptionalArgument(context, BAN, Boolean.class);
-        TradeOffer removed = tradeMaterialsEditor.removeTrade(itemId);
+        int index = getOptionalArgument(context, INDEX, Integer.class).orElse(1);
+        boolean shouldAdd = getOptionalArgument(context, shouldAddName, Boolean.class).orElse(false);
+        TradeOffer removed = removeFrom.removeTrade(itemId, index);
         sendMessageToSender(context.getSource(),
-                "Der Custom Handel '" + tradeMaterialsEditor.tradeOfferToString(removed, new StringBuilder(), -1).toString() +
-                        "' wurde von der " + tradeMaterialsEditor.getListName() + " entfernt.",
-                TEAL, false);
-        if (ban.orElse(false) && tradeBlackListEditor.addTrade(removed) != -1) {
+                "Der Handel '" + removeFrom.tradeOfferToString(removed, new StringBuilder(), -1).toString() +
+                        "' wurde von der " + removeFrom.getListName() + " entfernt.",
+                TEAL, true);
+        if (shouldAdd && addTo.addTrade(removed) != -1) {
+            if (closeScreens) closeAllVillagerMerchantScreenHandler(context.getSource().getServer());
             sendMessageToSender(context.getSource(),
-                    "Und zur " + tradeBlackListEditor.getListName() + " hinzugefügt.",
-                    TEAL, false);
+                    "Und zur " + addTo.getListName() + " hinzugefügt.",
+                    TEAL, true);
         }
         return 1;
     }
 
     private CompletableFuture<Suggestions> suggestItems(SuggestionsBuilder builder, ListEditor listEditor) {
-        // TODO: does this work? (only suggesting items that are on the result list)
         Set<Identifier> allowedIds = listEditor.getIdentifiers();
         return CommandSource.suggestIdentifiers(allowedIds, builder);
-//        CompletableFuture<Suggestions> result;
-//        if (builder.getRemaining().contains("[")) {
-//            result = ItemStackArgumentType.itemStack(registryAccess).listSuggestions(context, builder);
-//        } else {
-//            result = CommandSource.suggestIdentifiers(allowedIds, builder);
-//        }
-//        return result;
     }
 
     private CompletableFuture<Suggestions> suggestAmount(CommandContext<ServerCommandSource> context, SuggestionsBuilder builder, String itemArgName) {
@@ -332,7 +357,7 @@ public class CustomTradesCommands {
             intro += ", werden alle diese Handel dem Villager hinzugefügt. (Bzw. es passiert nichts, wenn der Villager bereits alle diese Custom Handel hat.)";
         }
         sendMessageToSender(context.getSource(), intro, TEAL, false);
-        String tradeList = tradeMaterialsEditor.getTradesAsString(getOptionalArgument(context, ONLYACTIVE, Boolean.class).orElse(true));
+        String tradeList = tradeMaterialsEditor.getTradesAsString(getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true));
         if (tradeList.isEmpty()) {
             sendMessageToSender(context.getSource(), "Die Liste der Custom Handel ist leer.",
                     TEAL, false);
@@ -348,6 +373,7 @@ public class CustomTradesCommands {
     }
 
     private int addNewBlackTrade(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        closeAllVillagerMerchantScreenHandler(context.getSource().getServer());
         return addNewTrade(context, tradeBlackListEditor);
     }
 
@@ -427,7 +453,7 @@ public class CustomTradesCommands {
     public int showBlackList(@NonNull CommandContext<ServerCommandSource> context) {
         sendMessageToSender(context.getSource(), "Die " + tradeBlackListEditor.getListName() + " enthält alle Handel, " +
                 "die von Villagern bei nächster Gelegenheit entfernt werden", TEAL, false);
-        String blackList = tradeBlackListEditor.getTradesAsString(getOptionalArgument(context, ONLYACTIVE, Boolean.class).orElse(true));
+        String blackList = tradeBlackListEditor.getTradesAsString(getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true));
         if (blackList.isEmpty()) {
             sendMessageToSender(context.getSource(), "Die Liste der gebannten Handel ist leer.",
                     TEAL, false);
@@ -436,5 +462,15 @@ public class CustomTradesCommands {
                     TEAL, false);
         }
         return 1;
+    }
+
+    private void closeAllVillagerMerchantScreenHandler(@NonNull MinecraftServer server) {
+        // get all online players and close merchant screens if is of Villager Entity
+        server.getPlayerManager().getPlayerList().forEach(player -> {
+            if (player.currentScreenHandler instanceof MerchantAccessorMixin screenHandler
+                    && screenHandler.getMerchant() instanceof VillagerEntity) {
+                player.closeHandledScreen();
+            }
+        });
     }
 }

@@ -1,24 +1,19 @@
 package de.sterni.voidtrading.customtrades;
 
+import lombok.Getter;
 import lombok.NonNull;
 import net.minecraft.registry.Registries;
 import net.minecraft.village.TradeOffer;
 
 public class TradeBlackListEditor extends ListEditor {
-    private static TradeBlackListEditor instance = null;
+    @Getter
+    private static final TradeBlackListEditor instance = new TradeBlackListEditor();
     public static final String LIST_NAME = "TradeBlacklist";
     public static final String FILE_NAME = LIST_NAME+".json";
 
-    public TradeBlackListEditor() {
+    private TradeBlackListEditor() {
         super(LIST_NAME);
         loadFromFile();
-    }
-
-    public static TradeBlackListEditor getInstance() {
-        if (instance == null) {
-            instance = new TradeBlackListEditor();
-        }
-        return instance;
     }
 
     @Override

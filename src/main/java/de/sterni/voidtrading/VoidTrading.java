@@ -5,9 +5,11 @@ import de.sterni.voidtrading.command.TradeLogLevelCommand;
 import de.sterni.voidtrading.command.TradeResetCooldownCommand;
 import de.sterni.voidtrading.command.suggestions.LogLevelSuggestionProvider;
 import de.sterni.voidtrading.config.VoidTradingConfig;
+import de.sterni.voidtrading.customtrades.ListEditor;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +36,14 @@ public class VoidTrading implements ModInitializer {
 
         LOGGER.info("Look Mom! I'm void trading.");
 
+        registerVoidTradingCommands();
+
+        CustomTradesCommands.registerCommands();
+
+        registerShutdownHook();
+    }
+
+    private static void registerVoidTradingCommands() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
                 dispatcher.register(literal("voidtrading")
                         .then(literal(TradeResetCooldownCommand.COOLDOWN_ARG_NAME)
@@ -56,8 +66,14 @@ public class VoidTrading implements ModInitializer {
                                         )
                                 )
                         )
-                ));
+                )
+        );
+    }
 
-        CustomTradesCommands.registerCommands();
+    private static void registerShutdownHook() {
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            CONFIG.save();
+            ListEditor.getAllEditors().forEach(ListEditor::saveToFile);
+        });
     }
 }

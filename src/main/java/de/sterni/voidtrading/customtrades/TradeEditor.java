@@ -1,9 +1,9 @@
 package de.sterni.voidtrading.customtrades;
 
+import lombok.Getter;
 import lombok.NonNull;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.Item;
-import net.minecraft.item.Items;
 import net.minecraft.village.TradeOffer;
 
 import java.util.List;
@@ -14,8 +14,13 @@ import static de.sterni.voidtrading.VoidTrading.CONFIG;
 
 public class TradeEditor {
 
+    @Getter
+    private static final TradeEditor instance = new TradeEditor();
+
     private final TradeBlackListEditor blackListEditor = TradeBlackListEditor.getInstance();
     private final TradeMaterialsEditor materialsEditor = TradeMaterialsEditor.getInstance();
+
+    private TradeEditor() {}
 
     /**
      * Tries to edit the trades of the given villager based on the item in the player's hand.
@@ -25,8 +30,7 @@ public class TradeEditor {
      * @return true if the trades were ADDED. false if only banned trades were removed or no changes were made
      */
     public boolean tryEditTrades(VillagerEntity villager, Item handItem) {
-        removeBannedTrades(villager);
-        if (Items.AIR.equals(handItem)) {
+        if (handItem.getDefaultStack().isEmpty()) {
             return false;
         }
         if (CONFIG.enableCustomTradeCycling()) {
@@ -37,7 +41,7 @@ public class TradeEditor {
     }
 
     // TODO: can we move this to on Entity load and save some performance on right clicks? / necessary?
-    private void removeBannedTrades(VillagerEntity villager) {
+    public void removeBannedTrades(VillagerEntity villager) {
         villager.getOffers().removeIf(offer -> blackListEditor.containsTrade(offer) != -1);
     }
 
@@ -76,7 +80,7 @@ public class TradeEditor {
             return false;
         }
         List<TradeOffer> currentCustomTrades = materialsEditor.getCurrentCustomTrades(villager);
-        if (tradeOfferListsAreEqual(currentCustomTrades, newTrades.stream().toList())) {
+        if (tradeOfferListContains(currentCustomTrades, newTrades.stream().toList())) {
             return false;
         }
         villager.getOffers().removeAll(currentCustomTrades);
@@ -84,13 +88,8 @@ public class TradeEditor {
         return true;
     }
 
-    private boolean tradeOfferListsAreEqual(@NonNull List<TradeOffer> list1, @NonNull List<TradeOffer> list2) {
-        if (list1.size() != list2.size()) return false;
-        for (int i = 0; i < list1.size(); i++) {
-            if (!ListEditor.offersAreEqual(list1.get(i), list2.get(i))) {
-                return false;
-            }
-        }
-        return true;
+    private boolean tradeOfferListContains(@NonNull List<TradeOffer> containsOther, @NonNull List<TradeOffer> other) {
+        if (containsOther.size() < other.size()) return false;
+        return other.stream().filter(offer -> containsOther.stream().anyMatch(trade -> ListEditor.offersAreEqual(trade, offer))).toList().isEmpty();
     }
 }
