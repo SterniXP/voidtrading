@@ -1,9 +1,7 @@
 package de.sterni.voidtrading.customtrades;
 
 import lombok.Getter;
-import lombok.NonNull;
 import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.registry.Registries;
 import net.minecraft.village.TradeOffer;
 import net.minecraft.village.TradeOfferList;
 import org.jetbrains.annotations.NotNull;
@@ -27,16 +25,6 @@ public class TradeMaterialsEditor extends ListEditor {
     @Override
     public void loadFromFile() {
         setTrades(FileManager.loadListFromFile(FILE_NAME, EMPTY_JSON_ARRAY));
-    }
-
-    @Override
-    public int addTrade(@NonNull TradeOffer offer) {
-        int newIndex = super.addTrade(offer);
-        int indexBlackList = TradeBlackListEditor.getInstance().containsTrade(offer);
-        if (indexBlackList != -1) {
-            TradeBlackListEditor.getInstance().removeTrade(Registries.ITEM.getId(offer.getSellItem().getItem()), indexBlackList);
-        }
-        return newIndex;
     }
 
     public List<TradeOffer> getCurrentCustomTrades(@NotNull VillagerEntity villager) {

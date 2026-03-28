@@ -1,9 +1,6 @@
 package de.sterni.voidtrading.customtrades;
 
 import lombok.Getter;
-import lombok.NonNull;
-import net.minecraft.registry.Registries;
-import net.minecraft.village.TradeOffer;
 
 public class TradeBlackListEditor extends ListEditor {
     @Getter
@@ -20,16 +17,6 @@ public class TradeBlackListEditor extends ListEditor {
     @Override
     public void loadFromFile() {
         setTrades(FileManager.loadListFromFile(FILE_NAME, EMPTY_JSON_ARRAY).getAsJsonArray());
-    }
-
-    @Override
-    public int addTrade(@NonNull TradeOffer offer) {
-        int newIndex = super.addTrade(offer);
-        int indexMaterials = TradeMaterialsEditor.getInstance().containsTrade(offer);
-        if (indexMaterials != -1) {
-            TradeMaterialsEditor.getInstance().removeTrade(Registries.ITEM.getId(offer.getSellItem().getItem()), indexMaterials);
-        }
-        return newIndex;
     }
 
     public String getListName() {

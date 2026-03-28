@@ -3,6 +3,8 @@ package de.sterni.voidtrading.customtrades;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
 import com.mojang.serialization.JsonOps;
 import lombok.NonNull;
 import net.minecraft.component.ComponentChanges;
@@ -10,6 +12,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.predicate.ComponentPredicate;
 import net.minecraft.registry.Registries;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.village.TradeOffer;
 import net.minecraft.village.TradedItem;
@@ -21,7 +24,6 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,12 +48,15 @@ public abstract class ListEditor {
     public static final String ACTIVE = "ACTIVE";
 
     public static final int DEFAULT_MAX_USES = 12;
-
     public static final TradedItem DEFAULT_SECOND_BUY_ITEM = new TradedItem(ItemStack.EMPTY.getItem(), ItemStack.EMPTY.getCount());
 
     protected final Map<Identifier, LinkedHashSet<TradeOffer>> trades = new HashMap<>();
 
     protected static final Map<String, ListEditor> NAME_INSTANCE_MAP = new HashMap<>();
+
+    private static final Dynamic2CommandExceptionType TRADE_NOT_FOUND_EXCEPTION = new Dynamic2CommandExceptionType((resultItem, tradeIndex)
+            -> Text.literal("Der Handel [" + resultItem + ":" + tradeIndex + "] existiert nicht.")
+    );
 
     public record TradesStringWithCount(String tradesAsString, int count) {}
 
@@ -67,15 +72,30 @@ public abstract class ListEditor {
         for (Map.Entry<Identifier, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
             builder.append(trade.getKey()).append(":\n");
             LinkedHashSet<TradeOffer> offers = trade.getValue();
-            int i = 0;
-            for (TradeOffer offer : offers) {
-                if (onlyActive && !isOfferActive(offer)) continue;
-                i++;
-                tradeOfferToString(offer, builder, i);
-            }
-            count += i;
+            count += tradesOfItemToString(offers, builder, onlyActive);
         }
         return new TradesStringWithCount(builder.toString(), count);
+    }
+
+    public TradesStringWithCount getTradesAsString(Item resultItem, boolean onlyActive) {
+        LinkedHashSet<TradeOffer> offers = trades.get(Registries.ITEM.getId(resultItem));
+        if (offers == null) {
+            return new TradesStringWithCount("", 0);
+        }
+        StringBuilder builder = new StringBuilder(200);
+        int count = tradesOfItemToString(offers, builder, onlyActive);
+        return new TradesStringWithCount(builder.toString(), count);
+    }
+
+    private int tradesOfItemToString(Set<TradeOffer> offers, StringBuilder builder, boolean onlyActive) {
+        int i = 0;
+        for (TradeOffer offer : offers) {
+            if (onlyActive && !isOfferActive(offer)) continue;
+            i++;
+            tradeOfferToString(offer, builder, i);
+            builder.append("\n");
+        }
+        return i;
     }
 
     public StringBuilder tradeOfferToString(TradeOffer offer, StringBuilder builder, int i) {
@@ -87,9 +107,9 @@ public abstract class ListEditor {
         }
         builder.append(" -> ");
         appendItemStack(builder, offer.getSellItem());
-        builder.append("] x").append(offer.getMaxUses()).append("\n");
+        builder.append("] x").append(offer.getMaxUses());
         if (!isOfferActive(offer)) {
-            builder.append(" (inaktiv)\n");
+            builder.append(" (inaktiv)");
         }
         return builder;
     }
@@ -114,17 +134,18 @@ public abstract class ListEditor {
     }
 
     /**
-     * removes the trade with the given result item and index (starting at 1) and returns it. If the trade does not exist, an IllegalArgumentException is thrown.
+     * removes the trade with the given result item and index (starting at 1) and returns it.
+     * If the trade does not exist, an {@link #TRADE_NOT_FOUND_EXCEPTION} is thrown.
      *
      * @param resultItem the result item of the trade to remove
      * @param tradeIndex the index of the trade to remove (starting at 1)
      * @return the removed trade offer
-     * @throws NoSuchElementException if the trade does not exist
+     * @throws CommandSyntaxException if the trade does not exist
      */
-    public TradeOffer removeTrade(@NonNull Identifier resultItem, int tradeIndex) throws NoSuchElementException {
+    public TradeOffer removeTrade(@NonNull Identifier resultItem, int tradeIndex) throws CommandSyntaxException {
         Set<TradeOffer> offers = trades.get(resultItem);
         if (offers == null || offers.size() < tradeIndex || tradeIndex <= 0) {
-            throw new NoSuchElementException("Der Handel [" + resultItem + ":" + tradeIndex + "] existiert nicht.");
+            throw TRADE_NOT_FOUND_EXCEPTION.create(resultItem, tradeIndex);
         }
         Iterator<TradeOffer> iterator = offers.iterator();
         for (int i = 1; i < tradeIndex; i++) {
@@ -231,7 +252,6 @@ public abstract class ListEditor {
         Optional<TradedItem> otherSecondBuyItem = other.getSecondBuyItem();
         boolean xor = offerSecondBuyItem.isPresent() ^ otherSecondBuyItem.isPresent();
         return !xor && ItemStack.areEqual(offer.getOriginalFirstBuyItem(), other.getOriginalFirstBuyItem())
-                && offerSecondBuyItem.equals(otherSecondBuyItem)
                 && ItemStack.areEqual(offerSecondBuyItem.orElse(DEFAULT_SECOND_BUY_ITEM).itemStack(),
                     otherSecondBuyItem.orElse(DEFAULT_SECOND_BUY_ITEM).itemStack())
                 && ItemStack.areEqual(offer.getSellItem(), other.getSellItem())
@@ -299,12 +319,12 @@ public abstract class ListEditor {
      * @param resultItem the result item of the trade to get
      * @param tradeIndex the index of the trade to get (starting at 1)
      * @return the trade offer with the given result item and index
-     * @throws NoSuchElementException if the trade does not exist
+     * @throws CommandSyntaxException if the trade does not exist
      */
-    public TradeOffer getOffer(@NonNull Identifier resultItem, int tradeIndex) throws NoSuchElementException {
+    public TradeOffer getOffer(@NonNull Identifier resultItem, int tradeIndex) throws CommandSyntaxException {
         LinkedHashSet<TradeOffer> offers = trades.get(resultItem);
         if (offers == null || offers.size() < tradeIndex || tradeIndex <= 0) {
-            throw new NoSuchElementException("Der Handel [" + resultItem + ":" + tradeIndex + "] existiert nicht.");
+            throw TRADE_NOT_FOUND_EXCEPTION.create(resultItem, tradeIndex);
         }
         Iterator<TradeOffer> iterator = offers.iterator();
         for (int i = 1; i < tradeIndex; i++) {

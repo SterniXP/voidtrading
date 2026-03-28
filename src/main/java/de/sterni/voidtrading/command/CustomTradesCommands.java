@@ -75,6 +75,13 @@ public class CustomTradesCommands {
                 .executes(context -> defaultCommandResponse(instance, context))
                 .then(literal(TradeMaterialsEditor.LIST_COMMAND_NAME)
                         .executes(instance::showTradeList)
+                        .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
+                                .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
+                                .executes(instance::showTradeList)
+                                .then(argument(ONLY_ACTIVE, bool())
+                                        .executes(instance::showTradeList)
+                                )
+                        )
                         .then(argument(ONLY_ACTIVE, bool())
                                 .executes(instance::showTradeList)
                         )
@@ -144,6 +151,13 @@ public class CustomTradesCommands {
         dispatcher.register(literal("customtrades")
                 .then(literal(TradeBlackListEditor.LIST_COMMAND_NAME)
                         .executes(instance::showBlackList)
+                        .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
+                                .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
+                                .executes(instance::showBlackList)
+                                .then(argument(ONLY_ACTIVE, bool())
+                                        .executes(instance::showBlackList)
+                                )
+                        )
                         .then(argument(ONLY_ACTIVE, bool())
                                 .executes(instance::showBlackList)
                         )
@@ -269,7 +283,7 @@ public class CustomTradesCommands {
         return result;
     }
 
-    private int setActive(CommandContext<ServerCommandSource> context, ListEditor listEditor) {
+    private int setActive(CommandContext<ServerCommandSource> context, ListEditor listEditor) throws CommandSyntaxException {
         Identifier itemId = Registries.ITEM.getId(getItemStackArgument(context, ListEditor.RESULT_MATERIAL).getItem());
         int index = context.getArgument(INDEX, Integer.class);
         boolean active = context.getArgument(ListEditor.ACTIVE, Boolean.class);
@@ -282,7 +296,7 @@ public class CustomTradesCommands {
         return 1;
     }
 
-    private int removeTrade(CommandContext<ServerCommandSource> context, ListEditor removeFrom, ListEditor addTo, String shouldAddName, boolean closeScreens) {
+    private int removeTrade(CommandContext<ServerCommandSource> context, ListEditor removeFrom, ListEditor addTo, String shouldAddName, boolean closeScreens) throws CommandSyntaxException {
         Identifier itemId = Registries.ITEM.getId(getItemStackArgument(context, ListEditor.RESULT_MATERIAL).getItem());
         int index = getOptionalArgument(context, INDEX, Integer.class).orElse(1);
         boolean shouldAdd = getOptionalArgument(context, shouldAddName, Boolean.class).orElse(false);
@@ -367,7 +381,7 @@ public class CustomTradesCommands {
         sendMessageToSender(context.getSource(), intro);
         boolean onlyActive = getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true);
         String onlyActiveText = onlyActive ? "aktiven" : "aller";
-        ListEditor.TradesStringWithCount tradeList = tradeMaterialsEditor.getTradesAsString(getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true));
+        ListEditor.TradesStringWithCount tradeList = getTradesStringFromList(context, tradeMaterialsEditor, onlyActive);
         if (tradeList.tradesAsString().isEmpty()) {
             sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + "Custom Handel ist leer.");
         } else {
@@ -377,16 +391,29 @@ public class CustomTradesCommands {
         return 1;
     }
 
+    private ListEditor.TradesStringWithCount getTradesStringFromList(CommandContext<ServerCommandSource> context,
+                                                                     ListEditor listEditor,
+                                                                     boolean onlyActive) {
+        Optional<ItemStackArgument> stackArgument = getOptionalArgument(context, ListEditor.RESULT_MATERIAL, ItemStackArgument.class);
+        ListEditor.TradesStringWithCount result;
+        if (stackArgument.isPresent()) {
+            result = listEditor.getTradesAsString(stackArgument.get().getItem(), onlyActive);
+        } else {
+            result = listEditor.getTradesAsString(onlyActive);
+        }
+        return result;
+    }
+
     private int addNewWhiteTrade(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
-        return addNewTrade(context, tradeMaterialsEditor);
+        return addNewTrade(context, tradeMaterialsEditor, tradeBlackListEditor);
     }
 
     private int addNewBlackTrade(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         closeAllVillagerMerchantScreenHandler(context.getSource().getServer());
-        return addNewTrade(context, tradeBlackListEditor);
+        return addNewTrade(context, tradeBlackListEditor, tradeMaterialsEditor);
     }
 
-    public int addNewTrade(@NonNull CommandContext<ServerCommandSource> context, @NonNull ListEditor listEditor) throws CommandSyntaxException {
+    public int addNewTrade(@NonNull CommandContext<ServerCommandSource> context, @NonNull ListEditor addTo, @NonNull ListEditor removeFrom) throws CommandSyntaxException {
         ItemStackArgument sellItem = getItemStackArgument(context, ListEditor.RESULT_MATERIAL);
         Optional<Integer> resultAmount = getOptionalArgument(context, ListEditor.RESULT_AMOUNT, Integer.class);
         Optional<ItemStackArgument> ingredient1 = getOptionalArgument(context, ListEditor.INGREDIENT_1_MATERIAL, ItemStackArgument.class);
@@ -408,18 +435,24 @@ public class CustomTradesCommands {
                 0.2F
         );
         ListEditor.setOfferActive(offer, active.orElse(true));
-        int newIndex = listEditor.addTrade(offer);
+        int newIndex = addTo.addTrade(offer);
         int result = 1;
         if (newIndex != -1) {
             sendFeedbackToSender(context.getSource(),
-                    "Der Custom Handel wurde erfolgreich zur " + listEditor.getListName() + " hinzugefügt:\n" +
-                            sellItem.getItem().toString() + listEditor.tradeOfferToString(offer, new StringBuilder(),
+                    "Der Custom Handel wurde erfolgreich zur " + addTo.getListName() + " hinzugefügt:\n" +
+                            sellItem.getItem().toString() + addTo.tradeOfferToString(offer, new StringBuilder(),
                             (newIndex + 1)).toString(), TEAL, true);
         } else {
             sendFeedbackToSender(context.getSource(), "Der gewünschte Handel ist bereits auf der Liste. " +
-                            "Die Liste der Handel kann mit dem \"/customtrades " + listEditor.getListCommandName() +
+                            "Die Liste der Handel kann mit dem \"/customtrades " + addTo.getListCommandName() +
                             "\" Befehl angezeigt werden.", YELLOW, false);
             result = 0;
+        }
+        int removeIndex = removeFrom.containsTrade(offer);
+        if (removeIndex != -1) {
+            removeFrom.removeTrade(Registries.ITEM.getId(offer.getSellItem().getItem()), removeIndex + 1);
+            sendFeedbackToSender(context.getSource(), "Wurde aber von der " + removeFrom.getListName() + " entfernt, da er nicht auf beiden Listen gleichzeitig sein kann.", TEAL, true);
+            result = 1;
         }
         return result;
     }
@@ -463,7 +496,7 @@ public class CustomTradesCommands {
                 "die von Villagern bei nächster Gelegenheit entfernt werden");
         boolean onlyActive = getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true);
         String onlyActiveText = onlyActive ? "aktiven" : "aller";
-        ListEditor.TradesStringWithCount blackList = tradeBlackListEditor.getTradesAsString(onlyActive);
+        ListEditor.TradesStringWithCount blackList = getTradesStringFromList(context, tradeBlackListEditor, onlyActive);
         if (blackList.tradesAsString().isEmpty()) {
             sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + " gebannten Handel ist leer.");
         } else {
