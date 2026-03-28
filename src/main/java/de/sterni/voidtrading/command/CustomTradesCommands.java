@@ -83,7 +83,7 @@ public class CustomTradesCommands {
                                 )
                         )
                         .then(argument(ONLY_ACTIVE, bool()).executes(instance::showTradeList))
-                        .then(literal("Items").executes(context -> instance.showAvailableItems(context, instance.tradeMaterialsEditor)))
+                        .then(literal("items").executes(context -> instance.showAvailableItems(context, instance.tradeMaterialsEditor)))
                         .then(literal("add")
                                 .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
@@ -158,7 +158,7 @@ public class CustomTradesCommands {
                                 )
                         )
                         .then(argument(ONLY_ACTIVE, bool()).executes(instance::showBlackList))
-                        .then(literal("Items").executes(context -> instance.showAvailableItems(context, instance.tradeBlackListEditor)))
+                        .then(literal("items").executes(context -> instance.showAvailableItems(context, instance.tradeBlackListEditor)))
                         .then(literal("add")
                                 .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
@@ -311,6 +311,7 @@ public class CustomTradesCommands {
         int index = getOptionalArgument(context, INDEX, Integer.class).orElse(1);
         boolean shouldAdd = getOptionalArgument(context, shouldAddName, Boolean.class).orElse(false);
         TradeOffer removed = removeFrom.removeTrade(itemId, index);
+        ListEditor.setOfferActive(removed, true);
         sendFeedbackToSender(context.getSource(), "Der Handel '" +
                         removeFrom.tradeOfferToString(removed, new StringBuilder(), -1).toString() +
                         "' wurde von der " + removeFrom.getListName() + " entfernt.", TEAL, true);
@@ -450,7 +451,7 @@ public class CustomTradesCommands {
         if (newIndex != -1) {
             sendFeedbackToSender(context.getSource(),
                     "Der Custom Handel wurde erfolgreich zur " + addTo.getListName() + " hinzugefügt:\n" +
-                            sellItem.getItem().toString() + addTo.tradeOfferToString(offer, new StringBuilder(),
+                            sellItem.getItem().toString() + ":" + addTo.tradeOfferToString(offer, new StringBuilder(),
                             (newIndex + 1)).toString(), TEAL, true);
         } else {
             sendFeedbackToSender(context.getSource(), "Der gewünschte Handel ist bereits auf der Liste. " +

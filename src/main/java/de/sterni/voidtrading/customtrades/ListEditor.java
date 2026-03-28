@@ -301,7 +301,7 @@ public abstract class ListEditor {
         return ComponentChanges.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
     }
 
-    private boolean isOfferActive(@NonNull TradeOffer offer) {
+    boolean isOfferActive(@NonNull TradeOffer offer) {
         return !offer.hasBeenUsed();
     }
 

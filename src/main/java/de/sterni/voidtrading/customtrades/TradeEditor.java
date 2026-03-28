@@ -41,7 +41,7 @@ public class TradeEditor {
     }
 
     public void removeBannedTrades(VillagerEntity villager) {
-        villager.getOffers().removeIf(offer -> blackListEditor.containsTrade(offer) != -1);
+        villager.getOffers().removeIf(offer -> blackListEditor.containsActiveTrade(offer) != -1);
     }
 
     private boolean cycleTradeFor(VillagerEntity villager, Item handItem) {
@@ -74,7 +74,7 @@ public class TradeEditor {
     }
 
     private boolean addAllTradesFor(@NonNull VillagerEntity villager, @NonNull Item handItem) {
-        Set<TradeOffer> newTrades = materialsEditor.getTradesWithResult(handItem, false);
+        Set<TradeOffer> newTrades = materialsEditor.getTradesWithResult(handItem, true);
         if (newTrades.isEmpty()) {
             return false;
         }

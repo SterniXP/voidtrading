@@ -1,6 +1,10 @@
 package de.sterni.voidtrading.customtrades;
 
 import lombok.Getter;
+import net.minecraft.registry.Registries;
+import net.minecraft.village.TradeOffer;
+
+import java.util.Set;
 
 public class TradeBlackListEditor extends ListEditor {
     @Getter
@@ -31,5 +35,19 @@ public class TradeBlackListEditor extends ListEditor {
     @Override
     public void saveToFile() {
         saveToFile(FILE_NAME);
+    }
+
+    public int containsActiveTrade(TradeOffer checkOffer) {
+        Set<TradeOffer> offers = trades.get(Registries.ITEM.getId(checkOffer.getSellItem().getItem()));
+        if (offers != null) {
+            int index = 0;
+            for (TradeOffer tradeOffer : offers) {
+                if (isOfferActive(tradeOffer) && offersAreEqual(checkOffer, tradeOffer)) {
+                    return index;
+                }
+                index++;
+            }
+        }
+        return -1;
     }
 }
