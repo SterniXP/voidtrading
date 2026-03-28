@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import static de.sterni.voidtrading.VoidTrading.LOGGER;
 
 public abstract class ListEditor {
+    protected static final JsonElement EMPTY_JSON_OBJECT = new JsonObject();
     protected static final JsonElement EMPTY_JSON_ARRAY = new JsonArray();
     public static final String INGREDIENT_1_MATERIAL = "INGREDIENT_1_MATERIAL";
     private static final String INGREDIENT_1_COMPONENTS = "INGREDIENT_1_COMPONENTS";
@@ -289,13 +290,13 @@ public abstract class ListEditor {
     private JsonElement serializeComponents(ItemStack stack) {
         ComponentChanges componentChanges = stack.getComponentChanges();
         if (componentChanges.isEmpty()) {
-            return EMPTY_JSON_ARRAY;
+            return EMPTY_JSON_OBJECT;
         }
         return ComponentChanges.CODEC.encodeStart(JsonOps.INSTANCE, componentChanges).getOrThrow();
     }
 
     private ComponentChanges deserializeComponents(JsonElement json) {
-        if (json == null || json.isJsonNull() || (json.isJsonArray() && json.getAsJsonArray().isEmpty())) {
+        if (json == null || json.isJsonNull() || (json.isJsonObject() && json.getAsJsonObject().isEmpty())) {
             return ComponentChanges.EMPTY;
         }
         return ComponentChanges.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
