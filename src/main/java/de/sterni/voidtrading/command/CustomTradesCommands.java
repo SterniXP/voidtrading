@@ -82,9 +82,8 @@ public class CustomTradesCommands {
                                         .executes(instance::showTradeList)
                                 )
                         )
-                        .then(argument(ONLY_ACTIVE, bool())
-                                .executes(instance::showTradeList)
-                        )
+                        .then(argument(ONLY_ACTIVE, bool()).executes(instance::showTradeList))
+                        .then(literal("Items").executes(context -> instance.showAvailableItems(context, instance.tradeMaterialsEditor)))
                         .then(literal("add")
                                 .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
@@ -158,9 +157,8 @@ public class CustomTradesCommands {
                                         .executes(instance::showBlackList)
                                 )
                         )
-                        .then(argument(ONLY_ACTIVE, bool())
-                                .executes(instance::showBlackList)
-                        )
+                        .then(argument(ONLY_ACTIVE, bool()).executes(instance::showBlackList))
+                        .then(literal("Items").executes(context -> instance.showAvailableItems(context, instance.tradeBlackListEditor)))
                         .then(literal("add")
                                 .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
@@ -281,6 +279,18 @@ public class CustomTradesCommands {
             }
         }
         return result;
+    }
+
+    private int showAvailableItems(CommandContext<ServerCommandSource> context, ListEditor listEditor) {
+        Set<Identifier> identifiers = listEditor.getIdentifiers();
+        if (identifiers.isEmpty()) {
+            sendMessageToSender(context.getSource(), "Die Liste '" + listEditor.getListName() + "' ist komplett leer.");
+        } else {
+            StringBuilder message = new StringBuilder("Die Liste '" + listEditor.getListName() + "' enthält folgende Items als Handelsergebnis:\n");
+            identifiers.forEach(id -> message.append("- ").append(id.toString()).append("\n"));
+            sendMessageToSender(context.getSource(), message.toString());
+        }
+        return 1;
     }
 
     private int setActive(CommandContext<ServerCommandSource> context, ListEditor listEditor) throws CommandSyntaxException {
