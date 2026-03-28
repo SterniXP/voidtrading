@@ -40,7 +40,6 @@ public class TradeEditor {
         }
     }
 
-    // TODO: can we move this to on Entity load and save some performance on right clicks? / necessary?
     public void removeBannedTrades(VillagerEntity villager) {
         villager.getOffers().removeIf(offer -> blackListEditor.containsTrade(offer) != -1);
     }

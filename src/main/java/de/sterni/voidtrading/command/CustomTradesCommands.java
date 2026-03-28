@@ -9,6 +9,7 @@ import de.sterni.voidtrading.VoidTrading;
 import de.sterni.voidtrading.customtrades.ListEditor;
 import de.sterni.voidtrading.customtrades.TradeBlackListEditor;
 import de.sterni.voidtrading.customtrades.TradeMaterialsEditor;
+import de.sterni.voidtrading.logging.VoidTradingLogger;
 import de.sterni.voidtrading.mixin.MerchantAccessorMixin;
 import lombok.NonNull;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -44,7 +45,7 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 public class CustomTradesCommands {
-    public static final TextColor TEAL = TextColor.fromRgb(0x008080);
+    public static final TextColor TEAL = TextColor.fromRgb(0x00A0A0);
     public static final TextColor RED = TextColor.fromRgb(0xFF0000);
     public static final TextColor YELLOW = TextColor.fromRgb(0xFFFF00);
     public static final ItemStack DEFAULT_INGREDIENT = new ItemStack(Items.EMERALD, 8);
@@ -72,7 +73,7 @@ public class CustomTradesCommands {
                                              CustomTradesCommands instance) {
         dispatcher.register(literal("customtrades")
                 .executes(context -> defaultCommandResponse(instance, context))
-                .then(literal("list")
+                .then(literal(TradeMaterialsEditor.LIST_COMMAND_NAME)
                         .executes(instance::showTradeList)
                         .then(argument(ONLY_ACTIVE, bool())
                                 .executes(instance::showTradeList)
@@ -141,7 +142,7 @@ public class CustomTradesCommands {
                                                   CommandRegistryAccess registryAccess,
                                                   CustomTradesCommands instance) {
         dispatcher.register(literal("customtrades")
-                .then(literal("blacklist")
+                .then(literal(TradeBlackListEditor.LIST_COMMAND_NAME)
                         .executes(instance::showBlackList)
                         .then(argument(ONLY_ACTIVE, bool())
                                 .executes(instance::showBlackList)
@@ -250,7 +251,7 @@ public class CustomTradesCommands {
         String listsToReload = getOptionalArgument(context, LISTS_NAMES, String.class).orElse("ALL");
         if (listsToReload.contains("ALL")) {
             ListEditor.getAllEditors().forEach(method);
-            sendMessageToSender(context.getSource(), "Alle Listen wurden ", TEAL, true);
+            sendFeedbackToSender(context.getSource(), "Alle Listen wurden ", TEAL, true);
             return 1;
         }
         String[] listNames = listsToReload.split(" ");
@@ -259,10 +260,10 @@ public class CustomTradesCommands {
             ListEditor listEditor = ListEditor.getInstance(listName);
             if (listEditor != null) {
                 method.accept(listEditor);
-                sendMessageToSender(context.getSource(), "Die " + listName + " wurde " + wereWhat, TEAL, true);
+                sendFeedbackToSender(context.getSource(), "Die " + listName + " wurde " + wereWhat, TEAL, true);
                 result |= 1;
             } else {
-                sendMessageToSender(context.getSource(), "Die Liste '" + listName + "' existiert nicht. Verfügbare Listen: " + ListEditor.getAllEditorNames(), RED, true);
+                sendErrorToSender(context.getSource(), "Die Liste '" + listName + "' existiert nicht. Verfügbare Listen: " + ListEditor.getAllEditorNames());
             }
         }
         return result;
@@ -275,10 +276,9 @@ public class CustomTradesCommands {
 
         TradeOffer offer = listEditor.getOffer(itemId, index);
         ListEditor.setOfferActive(offer, active);
-        sendMessageToSender(context.getSource(),
-                "Der Handel '" + listEditor.tradeOfferToString(offer, new StringBuilder(), index).toString() +
-                        "' wurde auf " + (active ? "aktiv" : "inaktiv") + " gesetzt.",
-                TEAL, false);
+        sendFeedbackToSender(context.getSource(), "Der Handel '" +
+                        listEditor.tradeOfferToString(offer, new StringBuilder(), index).toString() + "' wurde auf " +
+                        (active ? "aktiv" : "inaktiv") + " gesetzt.", TEAL, true);
         return 1;
     }
 
@@ -287,15 +287,12 @@ public class CustomTradesCommands {
         int index = getOptionalArgument(context, INDEX, Integer.class).orElse(1);
         boolean shouldAdd = getOptionalArgument(context, shouldAddName, Boolean.class).orElse(false);
         TradeOffer removed = removeFrom.removeTrade(itemId, index);
-        sendMessageToSender(context.getSource(),
-                "Der Handel '" + removeFrom.tradeOfferToString(removed, new StringBuilder(), -1).toString() +
-                        "' wurde von der " + removeFrom.getListName() + " entfernt.",
-                TEAL, true);
+        sendFeedbackToSender(context.getSource(), "Der Handel '" +
+                        removeFrom.tradeOfferToString(removed, new StringBuilder(), -1).toString() +
+                        "' wurde von der " + removeFrom.getListName() + " entfernt.", TEAL, true);
         if (shouldAdd && addTo.addTrade(removed) != -1) {
             if (closeScreens) closeAllVillagerMerchantScreenHandler(context.getSource().getServer());
-            sendMessageToSender(context.getSource(),
-                    "Und zur " + addTo.getListName() + " hinzugefügt.",
-                    TEAL, true);
+            sendFeedbackToSender(context.getSource(), "Und zur " + addTo.getListName() + " hinzugefügt.", TEAL, true);
         }
         return 1;
     }
@@ -334,13 +331,24 @@ public class CustomTradesCommands {
 
     private static int defaultCommandResponse(CustomTradesCommands instance, CommandContext<ServerCommandSource> context) {
         instance.sendMessageToSender(context.getSource(), "Dieser Mod erlaubt es Spielern neue 'Custom Handel' zu Villagern hinzuzufügen.\n" +
-                        "Mit dem Befehl '/customtrades list' kannst du eine Liste aller verfügbaren Custom Handel anzeigen lassen.",
-                TEAL, false);
+                        "Mit dem Befehl '/customtrades list' kannst du eine Liste aller verfügbaren Custom Handel anzeigen lassen."
+        );
         return 1;
     }
 
-    private void sendMessageToSender(ServerCommandSource source, String message, TextColor color, boolean broadcastToOps) {
-        source.sendFeedback(() -> Text.literal(message).setStyle(Style.EMPTY.withColor(color)), broadcastToOps);
+    private void sendErrorToSender(ServerCommandSource source, String message) {
+        source.sendError(Text.literal(message).setStyle(Style.EMPTY.withColor(RED)));
+    }
+
+    private void sendFeedbackToSender(ServerCommandSource source, String message, TextColor color, boolean log) {
+        source.sendFeedback(() -> Text.literal(message).setStyle(Style.EMPTY.withColor(color)), false);
+        if (log) {
+            VoidTradingLogger.logEvent(message);
+        }
+    }
+
+    private void sendMessageToSender(ServerCommandSource source, String message) {
+        source.sendMessage(Text.literal(message).setStyle(Style.EMPTY.withColor(TEAL)));
     }
 
     public int showTradeList(@NonNull CommandContext<ServerCommandSource> context) {
@@ -356,14 +364,15 @@ public class CustomTradesCommands {
         } else {
             intro += ", werden alle diese Handel dem Villager hinzugefügt. (Bzw. es passiert nichts, wenn der Villager bereits alle diese Custom Handel hat.)";
         }
-        sendMessageToSender(context.getSource(), intro, TEAL, false);
-        String tradeList = tradeMaterialsEditor.getTradesAsString(getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true));
-        if (tradeList.isEmpty()) {
-            sendMessageToSender(context.getSource(), "Die Liste der Custom Handel ist leer.",
-                    TEAL, false);
+        sendMessageToSender(context.getSource(), intro);
+        boolean onlyActive = getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true);
+        String onlyActiveText = onlyActive ? "aktiven" : "aller";
+        ListEditor.TradesStringWithCount tradeList = tradeMaterialsEditor.getTradesAsString(getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true));
+        if (tradeList.tradesAsString().isEmpty()) {
+            sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + "Custom Handel ist leer.");
         } else {
-            sendMessageToSender(context.getSource(), "Verfügbare Custom Handel:\n" + tradeList,
-                    TEAL, false);
+            sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + "Custom Handel enthält " +
+                    tradeList.count() + " Einträge:\n" + tradeList.tradesAsString());
         }
         return 1;
     }
@@ -402,15 +411,14 @@ public class CustomTradesCommands {
         int newIndex = listEditor.addTrade(offer);
         int result = 1;
         if (newIndex != -1) {
-            sendMessageToSender(context.getSource(),
+            sendFeedbackToSender(context.getSource(),
                     "Der Custom Handel wurde erfolgreich zur " + listEditor.getListName() + " hinzugefügt:\n" +
-                            sellItem.getItem().toString() + listEditor.tradeOfferToString(offer, new StringBuilder(), (newIndex + 1)).toString(),
-                    TEAL, true);
+                            sellItem.getItem().toString() + listEditor.tradeOfferToString(offer, new StringBuilder(),
+                            (newIndex + 1)).toString(), TEAL, true);
         } else {
-            sendMessageToSender(context.getSource(),
-                    "Der gewünschte Handel ist bereits auf der Liste. " +
-                            "Die Liste der Handel kann mit dem \"/customtrades list\" Befehl angezeigt werden.",
-                    YELLOW, true);
+            sendFeedbackToSender(context.getSource(), "Der gewünschte Handel ist bereits auf der Liste. " +
+                            "Die Liste der Handel kann mit dem \"/customtrades " + listEditor.getListCommandName() +
+                            "\" Befehl angezeigt werden.", YELLOW, false);
             result = 0;
         }
         return result;
@@ -452,20 +460,20 @@ public class CustomTradesCommands {
 
     public int showBlackList(@NonNull CommandContext<ServerCommandSource> context) {
         sendMessageToSender(context.getSource(), "Die " + tradeBlackListEditor.getListName() + " enthält alle Handel, " +
-                "die von Villagern bei nächster Gelegenheit entfernt werden", TEAL, false);
-        String blackList = tradeBlackListEditor.getTradesAsString(getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true));
-        if (blackList.isEmpty()) {
-            sendMessageToSender(context.getSource(), "Die Liste der gebannten Handel ist leer.",
-                    TEAL, false);
+                "die von Villagern bei nächster Gelegenheit entfernt werden");
+        boolean onlyActive = getOptionalArgument(context, ONLY_ACTIVE, Boolean.class).orElse(true);
+        String onlyActiveText = onlyActive ? "aktiven" : "aller";
+        ListEditor.TradesStringWithCount blackList = tradeBlackListEditor.getTradesAsString(onlyActive);
+        if (blackList.tradesAsString().isEmpty()) {
+            sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + " gebannten Handel ist leer.");
         } else {
-            sendMessageToSender(context.getSource(), "Die Liste der gebannten Handel ist:\n" + blackList,
-                    TEAL, false);
+            sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + " gebannten Handel enthält " +
+                    blackList.count() + " Einträge:\n" + blackList.tradesAsString());
         }
         return 1;
     }
 
     private void closeAllVillagerMerchantScreenHandler(@NonNull MinecraftServer server) {
-        // get all online players and close merchant screens if is of Villager Entity
         server.getPlayerManager().getPlayerList().forEach(player -> {
             if (player.currentScreenHandler instanceof MerchantAccessorMixin screenHandler
                     && screenHandler.getMerchant() instanceof VillagerEntity) {

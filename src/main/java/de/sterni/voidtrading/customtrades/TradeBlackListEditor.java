@@ -10,6 +10,7 @@ public class TradeBlackListEditor extends ListEditor {
     private static final TradeBlackListEditor instance = new TradeBlackListEditor();
     public static final String LIST_NAME = "TradeBlacklist";
     public static final String FILE_NAME = LIST_NAME+".json";
+    public static final String LIST_COMMAND_NAME = "blacklist";
 
     private TradeBlackListEditor() {
         super(LIST_NAME);
@@ -33,6 +34,11 @@ public class TradeBlackListEditor extends ListEditor {
 
     public String getListName() {
         return LIST_NAME;
+    }
+
+    @Override
+    public String getListCommandName() {
+        return LIST_COMMAND_NAME;
     }
 
     @Override

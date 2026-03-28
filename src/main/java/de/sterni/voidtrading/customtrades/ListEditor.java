@@ -53,13 +53,16 @@ public abstract class ListEditor {
 
     protected static final Map<String, ListEditor> NAME_INSTANCE_MAP = new HashMap<>();
 
+    public record TradesStringWithCount(String tradesAsString, int count) {}
+
     protected ListEditor(String listName) {
         NAME_INSTANCE_MAP.put(listName, this);
     }
 
     public abstract void loadFromFile();
 
-    public String getTradesAsString(boolean onlyActive) {
+    public TradesStringWithCount getTradesAsString(boolean onlyActive) {
+        int count = 0;
         StringBuilder builder = new StringBuilder(200);
         for (Map.Entry<Identifier, LinkedHashSet<TradeOffer>> trade : trades.entrySet()) {
             builder.append(trade.getKey()).append(":\n");
@@ -70,8 +73,9 @@ public abstract class ListEditor {
                 i++;
                 tradeOfferToString(offer, builder, i);
             }
+            count += i;
         }
-        return builder.toString();
+        return new TradesStringWithCount(builder.toString(), count);
     }
 
     public StringBuilder tradeOfferToString(TradeOffer offer, StringBuilder builder, int i) {
@@ -328,6 +332,8 @@ public abstract class ListEditor {
     }
 
     public abstract String getListName();
+
+    public abstract String getListCommandName();
 
     public static ListEditor getInstance(String listName) {
         return NAME_INSTANCE_MAP.get(listName);
