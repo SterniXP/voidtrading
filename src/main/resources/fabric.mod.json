@@ -9,10 +9,11 @@
 	],
 	"contact": {
 		"homepage": "go home page XD",
-		"sources": "Ask Dev"
+		"sources": "https://github.com/SterniXP/voidtrading",
+		"issues": "https://github.com/SterniXP/voidtrading/issues"
 	},
 	"license": "MIT",
-	"icon": "assets/void-trading/icon.png",
+	"icon": "assets/voidtrading/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
@@ -27,7 +28,8 @@
 		"fabricloader": ">=0.16.14",
 		"minecraft": "~1.21.4",
 		"java": ">=21",
-		"fabric-api": "*"
+		"fabric-api": "*",
+		"owo": "0.12.20+1.21.4"
 	},
 	"suggests": {
 		"another-mod": "*"
