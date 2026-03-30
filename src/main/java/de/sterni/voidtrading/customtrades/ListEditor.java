@@ -8,9 +8,12 @@ import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
 import com.mojang.serialization.JsonOps;
 import lombok.NonNull;
 import net.minecraft.component.ComponentChanges;
+import net.minecraft.component.ComponentType;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.LoreComponent;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.predicate.ComponentPredicate;
+import net.minecraft.predicate.component.ComponentMapPredicate;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -33,6 +36,7 @@ import static de.sterni.voidtrading.VoidTrading.LOGGER;
 public abstract class ListEditor {
     protected static final JsonElement EMPTY_JSON_OBJECT = new JsonObject();
     protected static final JsonElement EMPTY_JSON_ARRAY = new JsonArray();
+    protected static final String LORE_LINE_PREFIX = "\u200B[CT]";
     public static final String INGREDIENT_1_MATERIAL = "INGREDIENT_1_MATERIAL";
     private static final String INGREDIENT_1_COMPONENTS = "INGREDIENT_1_COMPONENTS";
     public static final String INGREDIENT_1_AMOUNT = "INGREDIENT_1_AMOUNT";
@@ -91,8 +95,8 @@ public abstract class ListEditor {
     private int tradesOfItemToString(Set<TradeOffer> offers, StringBuilder builder, boolean onlyActive) {
         int i = 0;
         for (TradeOffer offer : offers) {
-            if (onlyActive && !isOfferActive(offer)) continue;
             i++;
+            if (onlyActive && !isOfferActive(offer)) continue;
             tradeOfferToString(offer, builder, i);
             builder.append("\n");
         }
@@ -130,7 +134,7 @@ public abstract class ListEditor {
             return -1;
         }
         Identifier resultItem = Registries.ITEM.getId(offer.getSellItem().getItem());
-        trades.computeIfAbsent(resultItem, k -> new LinkedHashSet<>()).add(offer);
+        trades.computeIfAbsent(resultItem, _ -> new LinkedHashSet<>()).add(offer);
         return trades.get(resultItem).size() - 1;
     }
 
@@ -168,7 +172,7 @@ public abstract class ListEditor {
                 if (resultItem.isPresent()) {
                     Item item = resultItem.get();
                     TradeOffer offer = readInTradeOffer(element.getAsJsonObject(), item);
-                    trades.computeIfAbsent(Registries.ITEM.getId(item), k -> new LinkedHashSet<>()).add(offer);
+                    trades.computeIfAbsent(Registries.ITEM.getId(item), _ -> new LinkedHashSet<>()).add(offer);
                 } else {
                     logInvalidTrade(element.getAsJsonObject(), "Ungültiges Ergebnis Item: " + element.getAsJsonObject().get(RESULT_MATERIAL));
                 }
@@ -195,10 +199,10 @@ public abstract class ListEditor {
         ComponentChanges firstBuyItemComponents = deserializeComponents(tradeAsJson.get(INGREDIENT_1_COMPONENTS));
         int amountFirstBuyItem = tradeAsJson.get(INGREDIENT_1_AMOUNT).getAsInt();
         ItemStack firstBuyStack = new ItemStack(firstBuyItem);
-        firstBuyStack.applyChanges(firstBuyItemComponents);
+        applyComponents(firstBuyStack, firstBuyItemComponents);
         firstBuyStack.setCount(amountFirstBuyItem);
         TradedItem firstTradedItem = new TradedItem(
-                firstBuyStack.getRegistryEntry(), amountFirstBuyItem, ComponentPredicate.of(firstBuyStack.getComponents())
+                firstBuyStack.getRegistryEntry(), amountFirstBuyItem, ComponentMapPredicate.of(firstBuyStack.getComponents())
         );
 
         Optional<TradedItem> secondTradedItem = Optional.empty();
@@ -208,17 +212,17 @@ public abstract class ListEditor {
             ComponentChanges secondBuyItemComponents = deserializeComponents(tradeAsJson.get(INGREDIENT_2_COMPONENTS));
             int amountSecondBuyItem = tradeAsJson.get(INGREDIENT_2_AMOUNT).getAsInt();
             ItemStack secondBuyStack = new ItemStack(secondBuyItem);
-            secondBuyStack.applyChanges(secondBuyItemComponents);
+            applyComponents(secondBuyStack, secondBuyItemComponents);
             secondBuyStack.setCount(amountSecondBuyItem);
             secondTradedItem = Optional.of(new TradedItem(
-                    secondBuyStack.getRegistryEntry(), amountSecondBuyItem, ComponentPredicate.of(secondBuyStack.getComponents())
+                    secondBuyStack.getRegistryEntry(), amountSecondBuyItem, ComponentMapPredicate.of(secondBuyStack.getComponents())
             ));
         }
 
         int resultAmount = tradeAsJson.get(RESULT_AMOUNT).getAsInt();
         ComponentChanges resultItemComponents = deserializeComponents(tradeAsJson.get(RESULT_COMPONENTS));
         ItemStack resultStack = new ItemStack(resultItem);
-        resultStack.applyChanges(resultItemComponents);
+        applyComponents(resultStack, resultItemComponents);
         resultStack.setCount(resultAmount);
 
         int maxUses = tradeAsJson.get(MAX_USES).getAsInt();
@@ -227,6 +231,32 @@ public abstract class ListEditor {
 
         TradeOffer offer = new TradeOffer(firstTradedItem, secondTradedItem, resultStack, maxUses, 1, 0.2F);
         return setOfferActive(offer, active);
+    }
+
+    private static void applyComponents(ItemStack stack, ComponentChanges components) {
+        if (components.isEmpty()) return;
+        stack.applyChanges(components);
+        LoreComponent lore = stack.getOrDefault(DataComponentTypes.LORE, LoreComponent.DEFAULT);
+        List<Text> loreLines = new ArrayList<>(lore.lines());
+        boolean shouldHaveGlint = false;
+        for (Map.Entry<ComponentType<?>, Optional<?>> entry : components.entrySet()) {
+            if (DataComponentTypes.STORED_ENCHANTMENTS.equals(entry.getKey())
+                    || DataComponentTypes.ENCHANTMENTS.equals(entry.getKey())
+                    || DataComponentTypes.LORE.equals(entry.getKey())
+                    || entry.getValue().isEmpty()) {
+                continue;
+            }
+            shouldHaveGlint = true;
+            Identifier key = Registries.DATA_COMPONENT_TYPE.getId(entry.getKey());
+            if (key == null) continue;
+            loreLines.add(Text.literal(LORE_LINE_PREFIX + key + ": " + entry.getValue().get()));
+        }
+        Optional<? extends Boolean> glintOverride = components.get(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE);
+        //noinspection OptionalAssignedToNull - components.get(...) is explicitly marked as @Nullable
+        if (shouldHaveGlint && (glintOverride == null || glintOverride.isEmpty())) {
+            stack.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+        }
+        stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines));
     }
 
     /**
@@ -289,10 +319,37 @@ public abstract class ListEditor {
 
     private JsonElement serializeComponents(ItemStack stack) {
         ComponentChanges componentChanges = stack.getComponentChanges();
-        if (componentChanges.isEmpty()) {
-            return EMPTY_JSON_OBJECT;
+        if (componentChanges.isEmpty()) return EMPTY_JSON_OBJECT;
+        Optional<? extends LoreComponent> loreComponent = componentChanges.get(DataComponentTypes.LORE);
+        if (loreComponent != null && loreComponent.isPresent() && loreComponent.get().lines().stream().anyMatch(line -> line.getString().startsWith(LORE_LINE_PREFIX))) {
+            componentChanges = specialHandling(componentChanges, loreComponent.get());
         }
         return ComponentChanges.CODEC.encodeStart(JsonOps.INSTANCE, componentChanges).getOrThrow();
+    }
+
+    private static ComponentChanges specialHandling(ComponentChanges componentChanges, LoreComponent loreComponent) {
+        ComponentChanges.Builder builder = ComponentChanges.builder();
+        for (Map.Entry<ComponentType<?>, Optional<?>> entry : componentChanges.entrySet()) {
+            if (!(DataComponentTypes.LORE.equals(entry.getKey())
+                    || DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE.equals(entry.getKey()))) {
+                //noinspection unchecked,OptionalGetWithoutIsPresent - literally how minecraft does it
+                builder.add((ComponentType<Object>) entry.getKey(), entry.getValue().get());
+            }
+        }
+        List<Text> loreLines = loreComponent.lines();
+        List<Text> myLoreLines = loreLines.stream().filter(line -> line.getString().startsWith(LORE_LINE_PREFIX)).toList();
+        if (!myLoreLines.isEmpty() && myLoreLines.stream().anyMatch(line -> line.getString()
+                .contains(String.valueOf(Registries.DATA_COMPONENT_TYPE.getId(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE))))) {
+            Optional<? extends Boolean> glintOverride = componentChanges.get(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE);
+            //noinspection OptionalAssignedToNull - components.get(...) is explicitly marked as @Nullable
+            builder.add(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, glintOverride == null || glintOverride.isEmpty() || glintOverride.get());
+        }
+        List<Text> otherLoreLines = loreLines.stream().filter(line -> !line.getString().startsWith(LORE_LINE_PREFIX)).toList();
+        if (!otherLoreLines.isEmpty()) {
+            builder.add(DataComponentTypes.LORE, new LoreComponent(loreLines));
+        }
+        componentChanges = builder.build();
+        return componentChanges;
     }
 
     private ComponentChanges deserializeComponents(JsonElement json) {

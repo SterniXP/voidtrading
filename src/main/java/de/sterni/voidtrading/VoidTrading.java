@@ -10,6 +10,8 @@ import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.minecraft.command.DefaultPermissions;
+import net.minecraft.command.permission.Permission;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +27,7 @@ public class VoidTrading implements ModInitializer {
     // That way, it's clear which mod wrote info, warnings, and errors.
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     public static final VoidTradingConfig CONFIG = VoidTradingConfig.createAndLoad();
-    public static final int PERMISSION_LEVEL = 2;
+    public static final Permission PERMISSION_LEVEL = DefaultPermissions.GAMEMASTERS;
     private static final String SET_ARG_NAME = "set";
 
     @Override
@@ -44,12 +46,12 @@ public class VoidTrading implements ModInitializer {
     }
 
     private static void registerVoidTradingCommands() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
+        CommandRegistrationCallback.EVENT.register((dispatcher, _, _) ->
                 dispatcher.register(literal("voidtrading")
                         .then(literal(TradeResetCooldownCommand.COOLDOWN_ARG_NAME)
                                 .executes(TradeResetCooldownCommand::cooldown)
                                 .then(literal(SET_ARG_NAME)
-                                        .requires(source -> source.hasPermissionLevel(PERMISSION_LEVEL))
+                                        .requires(source -> source.getPermissions().hasPermission(PERMISSION_LEVEL))
                                         .then(argument(TradeResetCooldownCommand.COOLDOWN_ARG_NAME, integer())
                                                 .executes(TradeResetCooldownCommand::setCooldown)
                                         )
@@ -57,7 +59,7 @@ public class VoidTrading implements ModInitializer {
                         )
                         //loglevel commands
                         .then(literal(TradeLogLevelCommand.LOG_LEVEL_ARG_NAME)
-                                .requires(source -> source.hasPermissionLevel(PERMISSION_LEVEL))
+                                .requires(source -> source.getPermissions().hasPermission(PERMISSION_LEVEL))
                                 .executes(TradeLogLevelCommand::logLevel)
                                 .then(literal(SET_ARG_NAME)
                                         .then(argument(TradeLogLevelCommand.LOG_LEVEL_ARG_NAME, word())
@@ -71,7 +73,7 @@ public class VoidTrading implements ModInitializer {
     }
 
     private static void registerShutdownHook() {
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+        ServerLifecycleEvents.SERVER_STOPPING.register(_ -> {
             CONFIG.save();
             ListEditor.getAllEditors().forEach(ListEditor::saveToFile);
         });

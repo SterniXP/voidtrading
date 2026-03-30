@@ -31,7 +31,7 @@ public class MerchantScreenCloseMixin {
     private void onTradingScreenClosed(PlayerEntity player, CallbackInfo ci) {
         if (merchant instanceof MerchantEntity merchantEntity
                 && !this.merchant.canInteract(player)
-                && Math.abs(player.getWorld().getTime()
+                && Math.abs(player.getEntityWorld().getTime()
                 - playerCooldownMap.getOrDefault(player.getUuidAsString(), 0L)) >= CONFIG.cooldown()) {
 
             VoidTradingLogger.logEvent("Trade of Villager (id: {}) at {}:{} reset.",
@@ -42,7 +42,7 @@ public class MerchantScreenCloseMixin {
             for (TradeOffer offer : merchantEntity.getOffers()) {
                 offer.resetUses();
             }
-            playerCooldownMap.put(player.getUuidAsString(), player.getWorld().getTime());
+            playerCooldownMap.put(player.getUuidAsString(), player.getEntityWorld().getTime());
         }
     }
 }

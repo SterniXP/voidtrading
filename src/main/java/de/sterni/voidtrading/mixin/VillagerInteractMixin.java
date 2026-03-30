@@ -30,10 +30,10 @@ public abstract class VillagerInteractMixin {
 
     @Inject(method = "interactMob", at = @At("HEAD"), cancellable = true)
     private void checkTrades(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
-        if (player.getWorld().isClient()
+        if (player.getEntityWorld().isClient()
                 || player.getStackInHand(hand).isOf(Items.VILLAGER_SPAWN_EGG)
-                || getVillagerData().getProfession().equals(VillagerProfession.NITWIT)
-                || getVillagerData().getProfession().equals(VillagerProfession.NONE)) {
+                || getVillagerData().profession().equals(VillagerProfession.NITWIT)
+                || getVillagerData().profession().equals(VillagerProfession.NONE)) {
             return;
         }
         VillagerEntity villager = (VillagerEntity) (Object) this;
@@ -43,7 +43,7 @@ public abstract class VillagerInteractMixin {
                 player.getStackInHand(hand).decrementUnlessCreative(1, player);
             }
             villager.playSound(villager.getYesSound());
-            player.getWorld().playSound(null, player.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.MASTER, 1.0f, 1.0f);
+            player.getEntityWorld().playSound(null, player.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.MASTER, 1.0f, 1.0f);
             cir.setReturnValue(ActionResult.SUCCESS);
         }
     }

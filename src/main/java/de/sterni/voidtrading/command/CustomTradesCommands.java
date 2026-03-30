@@ -19,13 +19,14 @@ import net.minecraft.command.argument.ItemStackArgument;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.predicate.ComponentPredicate;
+import net.minecraft.predicate.component.ComponentMapPredicate;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.village.TradeOffer;
 import net.minecraft.village.TradedItem;
@@ -45,7 +46,7 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 public class CustomTradesCommands {
-    public static final TextColor TEAL = TextColor.fromRgb(0x00A0A0);
+    public static final TextColor TEAL = TextColor.fromFormatting(Formatting.AQUA);
     public static final TextColor RED = TextColor.fromRgb(0xFF0000);
     public static final TextColor YELLOW = TextColor.fromRgb(0xFFFF00);
     public static final ItemStack DEFAULT_INGREDIENT = new ItemStack(Items.EMERALD, 8);
@@ -60,7 +61,7 @@ public class CustomTradesCommands {
 
     public static void registerCommands() {
         CustomTradesCommands instance = new CustomTradesCommands();
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, _) -> {
             registerListCommands(dispatcher, registryAccess, instance);
             registerBlacklistCommands(dispatcher, registryAccess, instance);
             registerReloadCommands(dispatcher, instance);
@@ -76,7 +77,7 @@ public class CustomTradesCommands {
                 .then(literal(TradeMaterialsEditor.LIST_COMMAND_NAME)
                         .executes(instance::showTradeList)
                         .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
-                                .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
+                                .suggests((_, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
                                 .executes(instance::showTradeList)
                                 .then(argument(ONLY_ACTIVE, bool())
                                         .executes(instance::showTradeList)
@@ -85,7 +86,7 @@ public class CustomTradesCommands {
                         .then(argument(ONLY_ACTIVE, bool()).executes(instance::showTradeList))
                         .then(literal("items").executes(context -> instance.showAvailableItems(context, instance.tradeMaterialsEditor)))
                         .then(literal("add")
-                                .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
+                                .requires(source -> source.getPermissions().hasPermission(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
                                         .executes(instance::addNewWhiteTrade)
                                         .then(argument(ListEditor.RESULT_AMOUNT, integer(1))
@@ -109,15 +110,21 @@ public class CustomTradesCommands {
                                                                                 )
                                                                         )
                                                                 )
+                                                                .then(argument(ListEditor.MAX_USES, integer(1))
+                                                                        .executes(instance::addNewWhiteTrade)
+                                                                        .then(argument(ListEditor.ACTIVE, bool())
+                                                                                .executes(instance::addNewWhiteTrade)
+                                                                        )
+                                                                )
                                                         )
                                                 )
                                         )
                                 )
                         )
                         .then(literal("remove")
-                                .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
+                                .requires(source -> source.getPermissions().hasPermission(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
-                                        .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
+                                        .suggests((_, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
                                         .executes(context -> instance.removeTrade(context, instance.tradeMaterialsEditor, instance.tradeBlackListEditor, BAN, true))
                                         .then(argument(INDEX, integer(1))
                                                 .suggests((context, builder) -> instance.suggestIndices(context, builder, instance.tradeMaterialsEditor))
@@ -129,9 +136,9 @@ public class CustomTradesCommands {
                                 )
                         )
                         .then(literal("setactive")
-                                .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
+                                .requires(source -> source.getPermissions().hasPermission(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
-                                        .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
+                                        .suggests((_, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
                                         .then(argument(INDEX, integer(1))
                                                 .suggests((context, builder) -> instance.suggestIndices(context, builder, instance.tradeMaterialsEditor))
                                                 .then(argument(ListEditor.ACTIVE, bool())
@@ -151,7 +158,7 @@ public class CustomTradesCommands {
                 .then(literal(TradeBlackListEditor.LIST_COMMAND_NAME)
                         .executes(instance::showBlackList)
                         .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
-                                .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
+                                .suggests((_, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
                                 .executes(instance::showBlackList)
                                 .then(argument(ONLY_ACTIVE, bool())
                                         .executes(instance::showBlackList)
@@ -160,7 +167,7 @@ public class CustomTradesCommands {
                         .then(argument(ONLY_ACTIVE, bool()).executes(instance::showBlackList))
                         .then(literal("items").executes(context -> instance.showAvailableItems(context, instance.tradeBlackListEditor)))
                         .then(literal("add")
-                                .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
+                                .requires(source -> source.getPermissions().hasPermission(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
                                         .executes(instance::addNewBlackTrade)
                                         .then(argument(ListEditor.RESULT_AMOUNT, integer(1))
@@ -184,15 +191,21 @@ public class CustomTradesCommands {
                                                                                 )
                                                                         )
                                                                 )
+                                                                .then(argument(ListEditor.MAX_USES, integer(1))
+                                                                        .executes(instance::addNewBlackTrade)
+                                                                        .then(argument(ListEditor.ACTIVE, bool())
+                                                                                .executes(instance::addNewBlackTrade)
+                                                                        )
+                                                                )
                                                         )
                                                 )
                                         )
                                 )
                         )
                         .then(literal("remove")
-                                .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
+                                .requires(source -> source.getPermissions().hasPermission(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
-                                        .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
+                                        .suggests((_, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
                                         .executes(context -> instance.removeTrade(context, instance.tradeBlackListEditor, instance.tradeMaterialsEditor, RESTORE, false))
                                         .then(argument(INDEX, integer(1))
                                                 .suggests((context, builder) -> instance.suggestIndices(context, builder, instance.tradeBlackListEditor))
@@ -204,9 +217,9 @@ public class CustomTradesCommands {
                                 )
                         )
                         .then(literal("setactive")
-                                .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
+                                .requires(source -> source.getPermissions().hasPermission(VoidTrading.PERMISSION_LEVEL))
                                 .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
-                                        .suggests((context, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
+                                        .suggests((_, builder) -> instance.suggestItems(builder, instance.tradeBlackListEditor))
                                         .then(argument(INDEX, integer(1))
                                                 .suggests((context, builder) -> instance.suggestIndices(context, builder, instance.tradeBlackListEditor))
                                                 .then(argument(ListEditor.ACTIVE, bool())
@@ -229,7 +242,7 @@ public class CustomTradesCommands {
         final String successMessage = "neu von der Festplatte geladen.";
         dispatcher.register(literal("customtrades")
                 .then(literal("reload")
-                        .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
+                        .requires(source -> source.getPermissions().hasPermission(VoidTrading.PERMISSION_LEVEL))
                         .executes(context -> instance.makeListsDo(context, ListEditor::loadFromFile, successMessage))
                         .then(argument(LISTS_NAMES, greedyString())
                                 .suggests(CustomTradesCommands::suggestListNames)
@@ -243,7 +256,7 @@ public class CustomTradesCommands {
         final String successMessage = "erfolgreich gespeichert.";
         dispatcher.register(literal("customtrades")
                 .then(literal("save")
-                        .requires(source -> source.hasPermissionLevel(VoidTrading.PERMISSION_LEVEL))
+                        .requires(source -> source.getPermissions().hasPermission(VoidTrading.PERMISSION_LEVEL))
                         .executes(context -> instance.makeListsDo(context, ListEditor::saveToFile, successMessage))
                         .then(argument(LISTS_NAMES, greedyString())
                                 .suggests(CustomTradesCommands::suggestListNames)
@@ -394,9 +407,9 @@ public class CustomTradesCommands {
         String onlyActiveText = onlyActive ? "aktiven" : "aller";
         ListEditor.TradesStringWithCount tradeList = getTradesStringFromList(context, tradeMaterialsEditor, onlyActive);
         if (tradeList.tradesAsString().isEmpty()) {
-            sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + "Custom Handel ist leer.");
+            sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + " Custom Handel ist leer.");
         } else {
-            sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + "Custom Handel enthält " +
+            sendMessageToSender(context.getSource(), "Die Liste der " + onlyActiveText + " Custom Handel enthält " +
                     tradeList.count() + " Einträge:\n" + tradeList.tradesAsString());
         }
         return 1;
@@ -479,7 +492,7 @@ public class CustomTradesCommands {
     private TradedItem getTradedItemFrom(Optional<ItemStackArgument> argument, Optional<Integer> amount, boolean useDefaultStack) throws CommandSyntaxException {
         if (argument.isPresent()) {
             ItemStack stack = getValidStackFrom(argument.get(), amount);
-            ComponentPredicate components = ComponentPredicate.of(stack.getComponents());
+            ComponentMapPredicate components = ComponentMapPredicate.of(stack.getComponents());
             return new TradedItem(stack.getRegistryEntry(), stack.getCount(), components);
         } else if (useDefaultStack) {
             return new TradedItem(DEFAULT_INGREDIENT.getItem(), DEFAULT_INGREDIENT.getCount());
