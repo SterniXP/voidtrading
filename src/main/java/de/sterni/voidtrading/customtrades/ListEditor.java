@@ -411,6 +411,8 @@ public abstract class ListEditor {
 
     public abstract String getListName();
 
+    public abstract String getShortName();
+
     public abstract String getListCommandName();
 
     public static ListEditor getInstance(String listName) {

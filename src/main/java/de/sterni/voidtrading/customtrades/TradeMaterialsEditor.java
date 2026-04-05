@@ -15,6 +15,7 @@ public class TradeMaterialsEditor extends ListEditor {
 
     public static final String LIST_NAME = "CustomTradesList";
     public static final String FILE_NAME = LIST_NAME+".json";
+    public static final String SHORT_NAME = "Handelsliste";
     public static final String LIST_COMMAND_NAME = "list";
 
     private TradeMaterialsEditor() {
@@ -40,6 +41,11 @@ public class TradeMaterialsEditor extends ListEditor {
 
     public String getListName() {
         return LIST_NAME;
+    }
+
+    @Override
+    public String getShortName() {
+        return SHORT_NAME;
     }
 
     @Override

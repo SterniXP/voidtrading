@@ -9,6 +9,7 @@ import de.sterni.voidtrading.VoidTrading;
 import de.sterni.voidtrading.customtrades.ListEditor;
 import de.sterni.voidtrading.customtrades.TradeBlackListEditor;
 import de.sterni.voidtrading.customtrades.TradeMaterialsEditor;
+import de.sterni.voidtrading.customtrades.inventoryview.CustomTradesInventoryView;
 import de.sterni.voidtrading.logging.VoidTradingLogger;
 import de.sterni.voidtrading.mixin.MerchantAccessorMixin;
 import lombok.NonNull;
@@ -58,6 +59,8 @@ public class CustomTradesCommands {
 
     private final TradeMaterialsEditor tradeMaterialsEditor = TradeMaterialsEditor.getInstance();
     private final TradeBlackListEditor tradeBlackListEditor = TradeBlackListEditor.getInstance();
+    private final CustomTradesInventoryView tradeListInventoryView = new CustomTradesInventoryView(tradeMaterialsEditor);
+    private final CustomTradesInventoryView tradeBlackListInventoryView = new CustomTradesInventoryView(tradeBlackListEditor);
 
     public static void registerCommands() {
         CustomTradesCommands instance = new CustomTradesCommands();
@@ -76,6 +79,7 @@ public class CustomTradesCommands {
                 .executes(context -> defaultCommandResponse(instance, context))
                 .then(literal(TradeMaterialsEditor.LIST_COMMAND_NAME)
                         .executes(instance::showTradeList)
+                        .then(literal("view").executes(instance::openTradeListView))
                         .then(argument(ListEditor.RESULT_MATERIAL, itemStack(registryAccess))
                                 .suggests((_, builder) -> instance.suggestItems(builder, instance.tradeMaterialsEditor))
                                 .executes(instance::showTradeList)
@@ -537,5 +541,10 @@ public class CustomTradesCommands {
                 player.closeHandledScreen();
             }
         });
+    }
+
+    private int openTradeListView(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        tradeListInventoryView.openViewForPlayer(context.getSource().getPlayerOrThrow());
+        return 1;
     }
 }

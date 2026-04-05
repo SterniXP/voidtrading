@@ -11,6 +11,7 @@ public class TradeBlackListEditor extends ListEditor {
     private static final TradeBlackListEditor instance = new TradeBlackListEditor();
     public static final String LIST_NAME = "TradeBlacklist";
     public static final String FILE_NAME = LIST_NAME+".json";
+    public static final String SHORT_NAME = "Banliste";
     public static final String LIST_COMMAND_NAME = "blacklist";
 
     private TradeBlackListEditor() {
@@ -25,6 +26,11 @@ public class TradeBlackListEditor extends ListEditor {
 
     public String getListName() {
         return LIST_NAME;
+    }
+
+    @Override
+    public String getShortName() {
+        return SHORT_NAME;
     }
 
     @Override
